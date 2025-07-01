@@ -2,7 +2,7 @@
 
 A Model Context Protocol (MCP) server that provides comprehensive tools for interacting with Bitbucket repositories through the Bitbucket API. This server enables agents to perform repository operations, manage branches, handle pull requests, analyze commit history, and work with repository tags.
 
-## Version 0.2.0
+## Version 0.2.1
 
 ## Features
 
