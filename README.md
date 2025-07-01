@@ -1,8 +1,8 @@
 # Bitbucket MCP Server
 
-A Model Context Protocol (MCP) server that provides comprehensive tools for interacting with Bitbucket repositories through the Bitbucket API. This server enables agents to perform repository operations, manage branches, handle pull requests, analyze commit history, and work with repository tags.
+A Model Context Protocol (MCP) server that provides comprehensive tools for interacting with Bitbucket repositories through the Bitbucket API. This server enables agents to perform repository operations, manage branches, handle pull requests, analyze commit history, work with repository tags, and monitor deployments.
 
-## Version 0.2.1
+## Version 0.3.0
 
 ## Features
 
@@ -29,6 +29,13 @@ A Model Context Protocol (MCP) server that provides comprehensive tools for inte
 - Decline pull requests with reasons
 - Merge pull requests with different strategies
 - Close source branches after merging
+
+### Deployment Management
+- List all deployments for a repository
+- Filter deployments by environment
+- Get detailed deployment information
+- Monitor deployment status and state
+- Track deployment history and releases
 
 ## Installation
 
@@ -346,6 +353,57 @@ Merge a pull request.
 }
 ```
 
+### Deployment Management
+
+#### 14. list_deployments
+List deployments for a repository with optional environment filtering.
+
+**Parameters:**
+- `repository` (required): Repository name
+- `environment` (optional): Filter by environment name
+- `page` (optional): Page number for pagination (default: 1)
+- `pagelen` (optional): Number of deployments per page (default: 10, max: 100)
+
+**Example:**
+```json
+{
+  "repository": "my-awesome-project",
+  "environment": "production",
+  "page": 1,
+  "pagelen": 20
+}
+```
+
+**Returns:**
+- Deployment UUID, key, and name
+- Deployment state (UNDEPLOYED, IN_PROGRESS, SUCCESSFUL, FAILED, STOPPED)
+- Environment information
+- Release details with commit information
+- Last update time
+- Deployable information
+
+#### 15. get_deployment
+Get detailed information about a specific deployment.
+
+**Parameters:**
+- `repository` (required): Repository name
+- `deployment_uuid` (required): Deployment UUID
+
+**Example:**
+```json
+{
+  "repository": "my-awesome-project",
+  "deployment_uuid": "12345678-1234-1234-1234-123456789abc"
+}
+```
+
+**Returns:**
+- Complete deployment information
+- Environment details
+- Release and commit information
+- Deployment state and timing
+- Links to related resources
+
 ## Usage Examples
 
 ### Repository Analysis Workflow
@@ -397,6 +455,21 @@ Merge a pull request.
 "Get commit history for the 'release/v2.1' branch in 'workspace-web'"
 ```
 
+### Deployment Management Workflow
+```bash
+# Monitor deployments across all environments
+"List all deployments for 'workspace-api'"
+
+# Check production deployments specifically
+"List deployments for 'workspace-api' filtered by 'production' environment"
+
+# Get detailed deployment information
+"Get details for deployment '12345678-1234-1234-1234-123456789abc' in 'workspace-api'"
+
+# Monitor deployment status
+"Show me the current deployment status for 'workspace-api' in production environment"
+```
+
 ## Error Handling
 
 The server includes comprehensive error handling for:
@@ -421,6 +494,24 @@ Errors are returned with descriptive messages to help troubleshoot issues.
 
 Bitbucket API has rate limits. The server will return appropriate error messages if limits are exceeded. Consider implementing exponential backoff for high-frequency operations.
 
+## What's New in Version 0.3.0
+
+### New Features Added:
+1. **Deployment Management**: Complete deployment monitoring and management capabilities
+   - `list_deployments` - List and filter deployments by environment
+   - `get_deployment` - Get detailed deployment information
+   - Support for all deployment states (UNDEPLOYED, IN_PROGRESS, SUCCESSFUL, FAILED, STOPPED)
+   - Environment-based filtering and monitoring
+   - Complete deployment metadata including release and commit information
+
+### Enhanced Capabilities:
+- Deployment status tracking across multiple environments
+- Release and commit information for each deployment
+- Deployment history analysis and monitoring
+- Environment-specific deployment filtering
+- Enhanced pagination support for deployment listings
+
+### Previous Version Highlights (0.2.0):
 ## What's New in Version 0.2.0
 
 ### New Features Added:

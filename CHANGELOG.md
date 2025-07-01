@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2025-07-01
+
+### Added
+- **Deployment Management**: New deployment monitoring and management capabilities
+  - `list_deployments` - List all deployments for a repository with optional environment filtering
+  - `get_deployment` - Get detailed information about specific deployments by UUID
+  - Support for deployment state tracking (UNDEPLOYED, IN_PROGRESS, SUCCESSFUL, FAILED, STOPPED)
+  - Environment-based deployment filtering
+  - Complete deployment metadata including release and commit information
+
+### Enhanced
+- **Deployment Interface**: New `BitbucketDeployment` TypeScript interface for type safety
+- **API Coverage**: Extended Bitbucket API coverage to include deployment endpoints
+- **Pagination Support**: Consistent pagination for deployment listing operations
+- **Error Handling**: Enhanced error handling for deployment-specific API responses
+
+### Technical Improvements
+- Updated version to 0.3.0 across all files
+- Added comprehensive deployment data structures
+- Enhanced TypeScript type definitions for deployment objects
+- Improved API response parsing for deployment endpoints
+
+### New Interfaces Added
+- `BitbucketDeployment`: Complete deployment information structure with environment, release, and deployable details
+
+### Usage Examples
+- Monitor deployment status across environments
+- Track deployment history and releases
+- Analyze deployment success/failure patterns
+- Environment-specific deployment management
+
 ## [0.2.1] - 2025-07-01
 
 ### Fixed

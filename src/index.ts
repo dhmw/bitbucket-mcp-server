@@ -132,6 +132,67 @@ interface BitbucketComment {
   };
 }
 
+interface BitbucketDeployment {
+  type: string;
+  uuid: string;
+  number: number;
+  key: string;
+  version?: number;
+  created_on: string;
+  state: {
+    type: string;
+    name: string;
+    trigger_url?: string;
+    triggerUrl?: string;
+  };
+  environment: {
+    uuid: string;
+  };
+  step?: {
+    uuid: string;
+  };
+  deployable: {
+    type: string;
+    uuid: string;
+    pipeline: {
+      uuid: string;
+      type: string;
+    };
+    key: string;
+    name: string;
+    url: string;
+    commit: {
+      hash: string;
+      links: {
+        self: { href: string };
+        html: { href: string };
+      };
+      type: string;
+    };
+    created_on: string;
+  };
+  release: {
+    type: string;
+    uuid: string;
+    pipeline: {
+      uuid: string;
+      type: string;
+    };
+    key: string;
+    name: string;
+    url: string;
+    commit: {
+      hash: string;
+      links: {
+        self: { href: string };
+        html: { href: string };
+      };
+      type: string;
+    };
+    created_on: string;
+  };
+}
+
 class BitbucketServer {
   private server: Server;
   private axiosInstance: AxiosInstance;
@@ -140,7 +201,7 @@ class BitbucketServer {
     this.server = new Server(
       {
         name: "bitbucket-mcp-server",
-        version: "0.2.1",
+        version: "0.3.0",
       },
       {
         capabilities: {
@@ -482,6 +543,53 @@ class BitbucketServer {
             required: ['repository', 'pull_request_id', 'content'],
           },
         },
+        {
+          name: 'list_deployments',
+          description: 'List deployments for a repository',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              repository: {
+                type: 'string',
+                description: 'Repository name (e.g., "my-repo")',
+              },
+              environment: {
+                type: 'string',
+                description: 'Filter by environment name (optional)',
+              },
+              page: {
+                type: 'number',
+                description: 'Page number for pagination (default: 1)',
+                minimum: 1,
+              },
+              pagelen: {
+                type: 'number',
+                description: 'Number of deployments per page (default: 10, max: 100)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+            required: ['repository'],
+          },
+        },
+        {
+          name: 'get_deployment',
+          description: 'Get details of a specific deployment',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              repository: {
+                type: 'string',
+                description: 'Repository name (e.g., "my-repo")',
+              },
+              deployment_uuid: {
+                type: 'string',
+                description: 'Deployment UUID',
+              },
+            },
+            required: ['repository', 'deployment_uuid'],
+          },
+        },
       ],
     }));
 
@@ -526,6 +634,12 @@ class BitbucketServer {
           
           case 'add_pull_request_comment':
             return await this.addPullRequestComment(request.params.arguments);
+          
+          case 'list_deployments':
+            return await this.listDeployments(request.params.arguments);
+          
+          case 'get_deployment':
+            return await this.getDeployment(request.params.arguments);
           
           default:
             throw new McpError(
@@ -1032,6 +1146,155 @@ class BitbucketServer {
               content: response.data.content.raw,
               author: response.data.user.display_name,
               created_on: response.data.created_on,
+            },
+          }, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async listDeployments(args: any) {
+    const { repository, environment, page = 1, pagelen = 10 } = args;
+
+    // Get environment information first to map UUIDs to names
+    const envsResponse = await this.axiosInstance.get(`/repositories/${BITBUCKET_WORKSPACE}/${repository}/environments`);
+    const environmentsMap = new Map();
+    envsResponse.data.values?.forEach((env: any) => {
+      environmentsMap.set(env.uuid, env.name);
+    });
+
+    // Get deployment data
+    const response = await this.axiosInstance.get(
+      `/repositories/${BITBUCKET_WORKSPACE}/${repository}/deployments`,
+      { params: { page, pagelen } }
+    );
+
+    let deployments = response.data.values || [];
+
+    // Filter by environment if specified
+    if (environment) {
+      const targetEnvUuid = envsResponse.data.values?.find((env: any) => env.name === environment)?.uuid;
+      deployments = deployments.filter((dep: any) => dep.environment?.uuid === targetEnvUuid);
+    }
+
+    // Transform deployment data for cleaner output
+    const transformedDeployments = deployments.map((deployment: any) => ({
+      uuid: deployment.uuid,
+      number: deployment.number,
+      created_on: deployment.created_on,
+      state: {
+        type: deployment.state.type,
+        name: deployment.state.name,
+        trigger_url: deployment.state.trigger_url || deployment.state.triggerUrl,
+      },
+      environment: {
+        uuid: deployment.environment.uuid,
+        name: environmentsMap.get(deployment.environment.uuid) || 'Unknown',
+      },
+      deployable: {
+        name: deployment.deployable.name,
+        url: deployment.deployable.url,
+        pipeline_uuid: deployment.deployable.pipeline.uuid,
+        commit_hash: deployment.deployable.commit.hash,
+        commit_url: deployment.deployable.commit.links.html.href,
+        created_on: deployment.deployable.created_on,
+      },
+      release: {
+        name: deployment.release.name,
+        url: deployment.release.url,
+        pipeline_uuid: deployment.release.pipeline.uuid,
+        commit_hash: deployment.release.commit.hash,
+        commit_url: deployment.release.commit.links.html.href,
+        created_on: deployment.release.created_on,
+      },
+    }));
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            repository,
+            environment: environment || 'all',
+            deployments: transformedDeployments,
+            pagination: {
+              page,
+              pagelen,
+              total: response.data.size,
+              has_next: !!response.data.next,
+              has_previous: !!response.data.previous,
+            },
+            note: "Note: This shows Bitbucket Pipeline deployments. For Buildkite deployment tracking, the webhook updates may be stored differently.",
+          }, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async getDeployment(args: any) {
+    const { repository, deployment_uuid } = args;
+
+    const response = await this.axiosInstance.get(
+      `/repositories/${BITBUCKET_WORKSPACE}/${repository}/deployments/${deployment_uuid}`
+    );
+
+    const deployment: BitbucketDeployment = response.data;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            uuid: deployment.uuid,
+            number: deployment.number,
+            key: deployment.key,
+            type: deployment.type,
+            version: deployment.version,
+            created_on: deployment.created_on,
+            state: {
+              type: deployment.state.type,
+              name: deployment.state.name,
+              trigger_url: deployment.state.trigger_url || deployment.state.triggerUrl,
+            },
+            environment: {
+              uuid: deployment.environment.uuid,
+            },
+            step: deployment.step ? {
+              uuid: deployment.step.uuid,
+            } : null,
+            deployable: {
+              type: deployment.deployable.type,
+              uuid: deployment.deployable.uuid,
+              key: deployment.deployable.key,
+              name: deployment.deployable.name,
+              url: deployment.deployable.url,
+              pipeline: {
+                uuid: deployment.deployable.pipeline.uuid,
+                type: deployment.deployable.pipeline.type,
+              },
+              commit: {
+                hash: deployment.deployable.commit.hash,
+                html_url: deployment.deployable.commit.links.html.href,
+                type: deployment.deployable.commit.type,
+              },
+              created_on: deployment.deployable.created_on,
+            },
+            release: {
+              type: deployment.release.type,
+              uuid: deployment.release.uuid,
+              key: deployment.release.key,
+              name: deployment.release.name,
+              url: deployment.release.url,
+              pipeline: {
+                uuid: deployment.release.pipeline.uuid,
+                type: deployment.release.pipeline.type,
+              },
+              commit: {
+                hash: deployment.release.commit.hash,
+                html_url: deployment.release.commit.links.html.href,
+                type: deployment.release.commit.type,
+              },
+              created_on: deployment.release.created_on,
             },
           }, null, 2),
         },
