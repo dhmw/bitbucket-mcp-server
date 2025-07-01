@@ -1,122 +1,156 @@
 # Changelog
 
-All notable changes to the Bitbucket MCP Server will be documented in this file.
+All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.1] - 2025-07-01
 
-## [0.1.0] - 2025-06-20
+### Fixed
+- **Pull Request Approval**: Fixed 400 Bad Request error when approving pull requests
+  - Added empty request body to approve endpoint call as required by Bitbucket API
+  - Enhanced approval response with timestamp for better tracking
+
+## [0.2.0] - 2025-07-01
 
 ### Added
+- **Repository Tags Support**: New `list_tags` tool for comprehensive tag management
+  - List all tags in a repository with pagination
+  - Get tag metadata including commit info, dates, and tagger details
+  - Support for release management workflows
 
-- Bitbucket MCP Server initial release
+- **Branch Commit History**: New `get_branch_commits` tool for detailed commit analysis
+  - Get complete commit history for any branch
+  - Retrieve commit messages, authors, dates, and parent commits
+  - Direct links to commits in Bitbucket web interface
+  - Pagination support for large commit histories
 
-- **Repository Management Tools:**
-  - `list_repositories` - List repositories in workspace with pagination support
-  - `list_branches` - List all branches in a specific repository
+- **Pull Request Comments Management**: New `get_pull_request_comments` tool
+  - Retrieve all comments from any pull request
+  - Get both raw text and HTML formatted content
+  - Access inline code review comments with file paths and line numbers
+  - Full pagination support for lengthy discussions
 
-- **Branch Operations:**
-  - `create_branch` - Create new branches from any source branch (defaults to main)
+### Enhanced
+- **Improved Documentation**: Comprehensive README.md update with detailed usage examples
+- **Enhanced Error Handling**: Better error messages and API response handling
+- **TypeScript Interfaces**: Added proper type definitions for all new API responses
+- **Pagination Support**: Consistent pagination across all list operations
 
-- **Pull Request Management:**
-  - `create_pull_request` - Create pull requests with title, description, and reviewers
-  - `list_pull_requests` - List pull requests by state (OPEN, MERGED, DECLINED) with pagination
-  - `get_pull_request` - Get detailed information about specific pull requests
+### Technical Improvements
+- Updated version numbering to 0.2.0 across all files
+- Enhanced TypeScript type safety with new interfaces
+- Improved code organization and structure
+- Better API response parsing and error handling
+
+### New Interfaces Added
+- `BitbucketTag`: Complete tag metadata structure
+- `BitbucketCommit`: Comprehensive commit information
+- `BitbucketComment`: Full comment data with inline support
+
+### Usage Examples Added
+- Repository analysis workflows
+- Development and branching workflows  
+- Code review and commenting workflows
+- Release management with tags
+
+## [0.1.0] - 2024-06-01
+
+### Added
+- **Initial Release**: Basic Bitbucket MCP Server functionality
+- **Repository Management**: 
+  - `list_repositories` - List repositories in workspace
+  - `list_branches` - List branches in repository
+
+- **Branch Operations**:
+  - `create_branch` - Create new branches from source branches
+
+- **Pull Request Management**:
+  - `create_pull_request` - Create pull requests with reviewers
+  - `list_pull_requests` - List PRs by state (OPEN, MERGED, DECLINED)
+  - `get_pull_request` - Get detailed PR information
   - `add_pull_request_comment` - Add comments to pull requests
 
-- **Pull Request Review & Actions:**
+- **Pull Request Actions**:
   - `approve_pull_request` - Approve pull requests
-  - `decline_pull_request` - Decline pull requests with optional reason
-  - `merge_pull_request` - Merge pull requests with configurable strategies:
-    - merge_commit (default)
-    - squash
-    - fast_forward
-  - Option to close source branch after merging
+  - `decline_pull_request` - Decline PRs with reasons  
+  - `merge_pull_request` - Merge PRs with different strategies
 
-- **Authentication & Security:**
+- **Authentication & Security**:
   - Bitbucket App Password authentication
-  - Secure credential handling via environment variables
-  - HTTPS-only API communications
-  - Comprehensive error handling for authentication failures
+  - Environment variable configuration
+  - Secure HTTPS API communication
 
-- **Error Handling:**
-  - Detailed error messages for API failures
-  - Proper handling of rate limiting
-  - Repository and branch not found errors
-  - Insufficient permissions errors
-  - Network connectivity issues
+- **Error Handling**:
+  - Comprehensive API error handling
+  - Authentication validation
+  - Resource existence checking
 
-- **Configuration:**
-  - Environment variable configuration for credentials
-  - MCP settings integration
-  - Workspace-based operations
-  - Configurable timeout settings
-
-### Technical Details
-- Built with TypeScript for type safety
-- Uses Axios for HTTP requests to Bitbucket API v2.0
-- Implements MCP SDK server protocol
-- Comprehensive input validation with JSON Schema
-- Pagination support for list operations
-- RESTful API design following Bitbucket API conventions
-
-### Documentation
-- Complete README.md with setup instructions
-- Tool reference documentation with examples
-- Usage examples for common workflows
-- Troubleshooting guide
-- Security best practices
-- Development setup instructions
-
-### Tested With
-- Bitbucket Cloud API v2.0
-- Test workspace (716+ repositories)
-- Node.js v14+ compatibility
-- MCP Client integration
+### Technical Foundation
+- Model Context Protocol (MCP) integration
+- TypeScript implementation with proper typing
+- Axios HTTP client for Bitbucket API
+- Environment-based configuration
+- Standard MCP server architecture
 
 ---
 
-## Release Notes
+## Version Comparison
 
-### Version 0.1.0 - Initial Release
+### What's New in 0.2.0 vs 0.1.0
 
-This is the first stable release of the Bitbucket MCP Server, providing comprehensive integration with Bitbucket repositories through the Model Context Protocol.
+**Repository Insights (NEW)**
+- Tag management and release tracking
+- Complete commit history analysis
+- Enhanced repository exploration capabilities
 
-**Key Features:**
-- Complete repository management workflow support
-- Full pull request lifecycle management
-- Branch operations and management
-- Secure authentication with App Passwords
-- Extensive error handling and validation
-- Production-ready with comprehensive documentation
+**Enhanced Pull Request Workflow (IMPROVED)**
+- Full comment thread retrieval and analysis
+- Better code review support with inline comments
+- More comprehensive PR discussion management
 
-**Use Cases:**
-- Automated repository operations
-- Pull request management and reviews
-- Branch creation for feature development
-- Code review workflows
-- Repository administration
-- DevOps automation
+**Developer Experience (ENHANCED)**
+- Detailed documentation with usage examples
+- Better error messages and troubleshooting guide
+- Improved TypeScript type safety
+- Consistent pagination across all operations
 
-**Getting Started:**
-1. Install dependencies: `npm install`
-2. Build the server: `npm run build`
-3. Create Bitbucket App Password with appropriate permissions
-4. Configure MCP settings with your credentials
-5. Start using the tools for repository operations
-
-For detailed setup instructions, see the README.md file.
+**Total Tools Available**
+- v0.1.0: 10 tools
+- v0.2.0: 13 tools (+3 new major features)
 
 ---
 
-## Future Roadmap
+## Migration Guide
 
-### Planned Features (v0.2.0)
-- [ ] Repository creation and deletion
-- [ ] Webhook management
-- [ ] Issue tracking integration
-- [ ] Pipeline/Build status integration
-- [ ] Advanced search capabilities
-- [ ] Bulk operations support
+### From 0.1.0 to 0.2.0
+
+No breaking changes - all existing functionality remains the same. Simply update your installation:
+
+1. Pull the latest code
+2. Run `npm run build` 
+3. Restart your MCP server
+
+New tools are immediately available without configuration changes.
+
+### New Environment Variables
+No new environment variables required - all existing configuration remains valid.
+
+### New Tool Usage
+The new tools follow the same patterns as existing tools:
+- Consistent parameter naming
+- Same authentication method
+- Standard JSON response format
+- Same pagination patterns
+
+---
+
+## Roadmap
+
+Future versions may include:
+- Webhook support for real-time notifications
+- Advanced search and filtering capabilities
+- Batch operations for multiple repositories
+- Integration with Bitbucket Pipelines
+- Support for repository settings management
+- File content operations (read/write repository files)

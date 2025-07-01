@@ -1,21 +1,27 @@
 # Bitbucket MCP Server
 
-A Model Context Protocol (MCP) server that provides tools for interacting with Bitbucket repositories through the Bitbucket API. This server enables agents to perform common repository operations like creating branches, managing pull requests, and reviewing code.
+A Model Context Protocol (MCP) server that provides comprehensive tools for interacting with Bitbucket repositories through the Bitbucket API. This server enables agents to perform repository operations, manage branches, handle pull requests, analyze commit history, and work with repository tags.
+
+## Version 0.2.0
 
 ## Features
 
 ### Repository Management
 - List repositories in your workspace
 - Browse repository branches
+- List repository tags with detailed information
+- Get commit history for any branch
 
 ### Branch Operations
 - Create new branches from any source branch
 - List all branches in a repository
+- View detailed commit history and messages for branches
 
 ### Pull Request Management
 - Create pull requests with reviewers
 - List pull requests by state (OPEN, MERGED, DECLINED)
 - Get detailed pull request information
+- Retrieve all comments from pull requests
 - Add comments to pull requests
 
 ### Pull Request Reviews & Actions
@@ -37,12 +43,10 @@ A Model Context Protocol (MCP) server that provides tools for interacting with B
 1. **Clone/Create the server:**
    ```bash
    cd /path/to/your/mcp/servers
-   # The server is already created at /home/user/bitbucket-mcp-server
    ```
 
 2. **Install dependencies:**
    ```bash
-   cd bitbucket-mcp-server
    npm install
    ```
 
@@ -92,7 +96,9 @@ Add the server to your MCP configuration file:
 
 ## Available Tools
 
-### 1. list_repositories
+### Repository Management Tools
+
+#### 1. list_repositories
 List repositories in your workspace with pagination support.
 
 **Parameters:**
@@ -107,7 +113,7 @@ List repositories in your workspace with pagination support.
 }
 ```
 
-### 2. list_branches
+#### 2. list_branches
 List all branches in a specific repository.
 
 **Parameters:**
@@ -120,7 +126,57 @@ List all branches in a specific repository.
 }
 ```
 
-### 3. create_branch
+#### 3. list_tags
+List all tags in a repository with detailed information.
+
+**Parameters:**
+- `repository` (required): Repository name
+- `page` (optional): Page number for pagination (default: 1)
+- `pagelen` (optional): Number of tags per page (default: 10, max: 100)
+
+**Example:**
+```json
+{
+  "repository": "my-awesome-project",
+  "page": 1,
+  "pagelen": 25
+}
+```
+
+**Returns:**
+- Tag name and commit information
+- Commit hash and message
+- Commit date
+- Tagger information (if available)
+
+#### 4. get_branch_commits
+Get detailed commit history for any branch.
+
+**Parameters:**
+- `repository` (required): Repository name
+- `branch` (required): Branch name (e.g., "main", "develop")
+- `page` (optional): Page number for pagination (default: 1)
+- `pagelen` (optional): Number of commits per page (default: 10, max: 100)
+
+**Example:**
+```json
+{
+  "repository": "my-awesome-project",
+  "branch": "main",
+  "page": 1,
+  "pagelen": 20
+}
+```
+
+**Returns:**
+- Commit hash, message, and date
+- Author information
+- Parent commit hashes
+- Direct link to commit in Bitbucket
+
+### Branch Operations
+
+#### 5. create_branch
 Create a new branch in a repository.
 
 **Parameters:**
@@ -137,7 +193,9 @@ Create a new branch in a repository.
 }
 ```
 
-### 4. create_pull_request
+### Pull Request Management
+
+#### 6. create_pull_request
 Create a new pull request.
 
 **Parameters:**
@@ -160,7 +218,7 @@ Create a new pull request.
 }
 ```
 
-### 5. list_pull_requests
+#### 7. list_pull_requests
 List pull requests in a repository.
 
 **Parameters:**
@@ -177,7 +235,7 @@ List pull requests in a repository.
 }
 ```
 
-### 6. get_pull_request
+#### 8. get_pull_request
 Get detailed information about a specific pull request.
 
 **Parameters:**
@@ -192,7 +250,52 @@ Get detailed information about a specific pull request.
 }
 ```
 
-### 7. approve_pull_request
+#### 9. get_pull_request_comments
+Get all comments from a pull request.
+
+**Parameters:**
+- `repository` (required): Repository name
+- `pull_request_id` (required): Pull request ID
+- `page` (optional): Page number for pagination (default: 1)
+- `pagelen` (optional): Number of comments per page (default: 20, max: 100)
+
+**Example:**
+```json
+{
+  "repository": "my-awesome-project",
+  "pull_request_id": 42,
+  "page": 1,
+  "pagelen": 50
+}
+```
+
+**Returns:**
+- Comment ID, content (raw and HTML)
+- Author information
+- Creation and update timestamps
+- Direct link to comment
+- Inline comment details (file path, line numbers) if applicable
+
+#### 10. add_pull_request_comment
+Add a comment to a pull request.
+
+**Parameters:**
+- `repository` (required): Repository name
+- `pull_request_id` (required): Pull request ID
+- `content` (required): Comment content
+
+**Example:**
+```json
+{
+  "repository": "my-awesome-project",
+  "pull_request_id": 42,
+  "content": "Great work! Just a few minor suggestions: consider adding unit tests for the new authentication methods."
+}
+```
+
+### Pull Request Actions
+
+#### 11. approve_pull_request
 Approve a pull request.
 
 **Parameters:**
@@ -207,7 +310,7 @@ Approve a pull request.
 }
 ```
 
-### 8. decline_pull_request
+#### 12. decline_pull_request
 Decline a pull request.
 
 **Parameters:**
@@ -224,7 +327,7 @@ Decline a pull request.
 }
 ```
 
-### 9. merge_pull_request
+#### 13. merge_pull_request
 Merge a pull request.
 
 **Parameters:**
@@ -243,59 +346,55 @@ Merge a pull request.
 }
 ```
 
-### 10. add_pull_request_comment
-Add a comment to a pull request.
-
-**Parameters:**
-- `repository` (required): Repository name
-- `pull_request_id` (required): Pull request ID
-- `content` (required): Comment content
-
-**Example:**
-```json
-{
-  "repository": "my-awesome-project",
-  "pull_request_id": 42,
-  "content": "Great work! Just a few minor suggestions: consider adding unit tests for the new authentication methods."
-}
-```
-
 ## Usage Examples
 
-### Basic Workflow
+### Repository Analysis Workflow
 ```bash
-# 1. List repositories
+# List all repositories
 "List all repositories in our workspace"
 
-# 2. Check branches in a repo
-"Show me all branches in the 'api' repository"
+# Analyze a specific repository
+"Show me all branches in the 'workspace-api' repository"
+"List all tags in the 'workspace-api' repository"
+"Get the last 20 commits from the 'main' branch in 'workspace-api'"
+```
 
-# 3. Create a new feature branch
-"Create a branch called 'feature/payment-improvements' in the 'api' repository from the 'develop' branch"
+### Development Workflow
+```bash
+# 1. Check commit history
+"Show me the recent commits on the 'develop' branch in 'workspace-api'"
 
-# 4. Create a pull request
-"Create a pull request in 'api' from 'feature/payment-improvements' to 'develop' with title 'Improve payment processing speed' and add 'john.doe' as reviewer"
+# 2. Create a new feature branch
+"Create a branch called 'feature/payment-improvements' in the 'workspace-api' repository from the 'develop' branch"
 
-# 5. Review and approve
-"List all open pull requests in 'api'"
-"Approve pull request #123 in 'api'"
-
-# 6. Merge the PR
-"Merge pull request #123 in 'api' using squash strategy and close the source branch"
+# 3. Create a pull request
+"Create a pull request in 'workspace-api' from 'feature/payment-improvements' to 'develop' with title 'Improve payment processing speed' and add 'john.doe' as reviewer"
 ```
 
 ### Code Review Workflow
 ```bash
-# Get PR details
-"Get details for pull request #456 in 'web'"
+# List open PRs
+"List all open pull requests in 'workspace-api'"
+
+# Get PR details and comments
+"Get details for pull request #123 in 'workspace-api'"
+"Show me all comments from pull request #123 in 'workspace-api'"
 
 # Add review comments
-"Add comment to pull request #456 in 'web': Please add error handling for the API timeout scenario"
+"Add comment to pull request #123 in 'workspace-api': Please add error handling for the API timeout scenario"
 
-# Approve or decline
-"Approve pull request #456 in 'web'"
-# OR
-"Decline pull request #456 in 'web' with reason 'Security vulnerabilities need to be addressed'"
+# Approve and merge
+"Approve pull request #123 in 'workspace-api'"
+"Merge pull request #123 in 'workspace-api' using squash strategy and close the source branch"
+```
+
+### Release Management
+```bash
+# Check tags for version information
+"List all tags in 'workspace-web' to see the release history"
+
+# Analyze commits between releases
+"Get commit history for the 'release/v2.1' branch in 'workspace-web'"
 ```
 
 ## Error Handling
@@ -321,6 +420,19 @@ Errors are returned with descriptive messages to help troubleshoot issues.
 ## API Rate Limits
 
 Bitbucket API has rate limits. The server will return appropriate error messages if limits are exceeded. Consider implementing exponential backoff for high-frequency operations.
+
+## What's New in Version 0.2.0
+
+### New Features Added:
+1. **Repository Tags Support**: Complete tag management with `list_tags`
+2. **Branch Commit History**: Detailed commit analysis with `get_branch_commits`
+3. **Pull Request Comments**: Full comment retrieval with `get_pull_request_comments`
+
+### Enhanced Capabilities:
+- Comprehensive commit history analysis for any branch
+- Tag-based release management support  
+- Complete pull request discussion thread access
+- Enhanced pagination support across all list operations
 
 ## Development
 
@@ -381,10 +493,10 @@ To enable detailed logging, you can modify the server code to include debug stat
 
 ## Contributing
 
-This MCP server was created to provide comprehensive Bitbucket integration. To extend functionality:
+This MCP server provides comprehensive Bitbucket integration. To extend functionality:
 
 1. Add new tool definitions in the `setupToolHandlers()` method
-2. Implement the corresponding handler methods
+2. Implement the corresponding handler methods  
 3. Update this documentation
 4. Test thoroughly with your Bitbucket repositories
 

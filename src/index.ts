@@ -49,6 +49,42 @@ interface BitbucketBranch {
   };
 }
 
+interface BitbucketTag {
+  name: string;
+  target: {
+    hash: string;
+    message: string;
+    date: string;
+  };
+  tagger?: {
+    user: {
+      display_name: string;
+      username: string;
+    };
+    date: string;
+  };
+}
+
+interface BitbucketCommit {
+  hash: string;
+  message: string;
+  date: string;
+  author: {
+    raw: string;
+    user?: {
+      display_name: string;
+      username: string;
+      uuid: string;
+    };
+  };
+  parents: Array<{
+    hash: string;
+  }>;
+  links: {
+    html: { href: string };
+  };
+}
+
 interface BitbucketPullRequest {
   id: number;
   title: string;
@@ -73,6 +109,29 @@ interface BitbucketPullRequest {
   };
 }
 
+interface BitbucketComment {
+  id: number;
+  content: {
+    raw: string;
+    html: string;
+  };
+  user: {
+    display_name: string;
+    username: string;
+    uuid: string;
+  };
+  created_on: string;
+  updated_on: string;
+  links: {
+    html: { href: string };
+  };
+  inline?: {
+    from?: number;
+    to?: number;
+    path: string;
+  };
+}
+
 class BitbucketServer {
   private server: Server;
   private axiosInstance: AxiosInstance;
@@ -81,7 +140,7 @@ class BitbucketServer {
     this.server = new Server(
       {
         name: "bitbucket-mcp-server",
-        version: "0.1.0",
+        version: "0.2.1",
       },
       {
         capabilities: {
@@ -148,6 +207,60 @@ class BitbucketServer {
               },
             },
             required: ['repository'],
+          },
+        },
+        {
+          name: 'list_tags',
+          description: 'List tags in a repository',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              repository: {
+                type: 'string',
+                description: 'Repository name (e.g., "my-repo")',
+              },
+              page: {
+                type: 'number',
+                description: 'Page number for pagination (default: 1)',
+                minimum: 1,
+              },
+              pagelen: {
+                type: 'number',
+                description: 'Number of tags per page (default: 10, max: 100)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+            required: ['repository'],
+          },
+        },
+        {
+          name: 'get_branch_commits',
+          description: 'Get commit history and details for a specific branch',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              repository: {
+                type: 'string',
+                description: 'Repository name (e.g., "my-repo")',
+              },
+              branch: {
+                type: 'string',
+                description: 'Branch name (e.g., "main", "develop")',
+              },
+              page: {
+                type: 'number',
+                description: 'Page number for pagination (default: 1)',
+                minimum: 1,
+              },
+              pagelen: {
+                type: 'number',
+                description: 'Number of commits per page (default: 10, max: 100)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+            required: ['repository', 'branch'],
           },
         },
         {
@@ -319,6 +432,35 @@ class BitbucketServer {
           },
         },
         {
+          name: 'get_pull_request_comments',
+          description: 'Get all comments from a pull request',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              repository: {
+                type: 'string',
+                description: 'Repository name (e.g., "my-repo")',
+              },
+              pull_request_id: {
+                type: 'number',
+                description: 'Pull request ID',
+              },
+              page: {
+                type: 'number',
+                description: 'Page number for pagination (default: 1)',
+                minimum: 1,
+              },
+              pagelen: {
+                type: 'number',
+                description: 'Number of comments per page (default: 20, max: 100)',
+                minimum: 1,
+                maximum: 100,
+              },
+            },
+            required: ['repository', 'pull_request_id'],
+          },
+        },
+        {
           name: 'add_pull_request_comment',
           description: 'Add a comment to a pull request',
           inputSchema: {
@@ -352,6 +494,12 @@ class BitbucketServer {
           case 'list_branches':
             return await this.listBranches(request.params.arguments);
           
+          case 'list_tags':
+            return await this.listTags(request.params.arguments);
+          
+          case 'get_branch_commits':
+            return await this.getBranchCommits(request.params.arguments);
+          
           case 'create_branch':
             return await this.createBranch(request.params.arguments);
           
@@ -372,6 +520,9 @@ class BitbucketServer {
           
           case 'merge_pull_request':
             return await this.mergePullRequest(request.params.arguments);
+          
+          case 'get_pull_request_comments':
+            return await this.getPullRequestComments(request.params.arguments);
           
           case 'add_pull_request_comment':
             return await this.addPullRequestComment(request.params.arguments);
@@ -461,6 +612,88 @@ class BitbucketServer {
               commit_hash: branch.target.hash,
               commit_message: branch.target.message,
             })),
+          }, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async listTags(args: any) {
+    const { repository, page = 1, pagelen = 10 } = args;
+
+    const response = await this.axiosInstance.get(
+      `/repositories/${BITBUCKET_WORKSPACE}/${repository}/refs/tags`,
+      {
+        params: { page, pagelen }
+      }
+    );
+
+    const tags: BitbucketTag[] = response.data.values;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            repository,
+            tags: tags.map(tag => ({
+              name: tag.name,
+              commit_hash: tag.target.hash,
+              commit_message: tag.target.message,
+              commit_date: tag.target.date,
+              tagger: tag.tagger ? {
+                name: tag.tagger.user.display_name,
+                username: tag.tagger.user.username,
+                tagged_on: tag.tagger.date,
+              } : null,
+            })),
+            pagination: {
+              page,
+              pagelen,
+              total: response.data.size || tags.length,
+            }
+          }, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async getBranchCommits(args: any) {
+    const { repository, branch, page = 1, pagelen = 10 } = args;
+
+    const response = await this.axiosInstance.get(
+      `/repositories/${BITBUCKET_WORKSPACE}/${repository}/commits/${branch}`,
+      {
+        params: { page, pagelen }
+      }
+    );
+
+    const commits: BitbucketCommit[] = response.data.values;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            repository,
+            branch,
+            commits: commits.map(commit => ({
+              hash: commit.hash,
+              message: commit.message,
+              date: commit.date,
+              author: {
+                raw: commit.author.raw,
+                display_name: commit.author.user?.display_name || 'Unknown',
+                username: commit.author.user?.username || 'unknown',
+              },
+              parents: commit.parents.map(parent => parent.hash),
+              url: commit.links.html.href,
+            })),
+            pagination: {
+              page,
+              pagelen,
+              total: response.data.size || commits.length,
+            }
           }, null, 2),
         },
       ],
@@ -637,7 +870,8 @@ class BitbucketServer {
     const { repository, pull_request_id } = args;
 
     const response = await this.axiosInstance.post(
-      `/repositories/${BITBUCKET_WORKSPACE}/${repository}/pullrequests/${pull_request_id}/approve`
+      `/repositories/${BITBUCKET_WORKSPACE}/${repository}/pullrequests/${pull_request_id}/approve`,
+      {} // Empty object as request body
     );
 
     return {
@@ -649,6 +883,7 @@ class BitbucketServer {
             repository,
             pull_request_id,
             approved_by: BITBUCKET_USERNAME,
+            approval_date: new Date().toISOString(),
           }, null, 2),
         },
       ],
@@ -715,6 +950,55 @@ class BitbucketServer {
               merge_strategy,
               close_source_branch,
             },
+          }, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async getPullRequestComments(args: any) {
+    const { repository, pull_request_id, page = 1, pagelen = 20 } = args;
+
+    const response = await this.axiosInstance.get(
+      `/repositories/${BITBUCKET_WORKSPACE}/${repository}/pullrequests/${pull_request_id}/comments`,
+      {
+        params: { page, pagelen }
+      }
+    );
+
+    const comments: BitbucketComment[] = response.data.values;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            repository,
+            pull_request_id,
+            comments: comments.map(comment => ({
+              id: comment.id,
+              content: {
+                raw: comment.content.raw,
+                html: comment.content.html,
+              },
+              author: {
+                display_name: comment.user.display_name,
+                username: comment.user.username,
+              },
+              created_on: comment.created_on,
+              updated_on: comment.updated_on,
+              url: comment.links.html.href,
+              inline: comment.inline ? {
+                path: comment.inline.path,
+                from_line: comment.inline.from,
+                to_line: comment.inline.to,
+              } : null,
+            })),
+            pagination: {
+              page,
+              pagelen,
+              total: response.data.size || comments.length,
+            }
           }, null, 2),
         },
       ],
