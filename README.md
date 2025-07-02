@@ -2,7 +2,7 @@
 
 A Model Context Protocol (MCP) server that provides comprehensive tools for interacting with Bitbucket repositories through the Bitbucket API. This server enables agents to perform repository operations, manage branches, handle pull requests, analyze commit history, work with repository tags, and monitor deployments.
 
-## Version 0.3.0
+## Version 0.4.0
 
 ## Features
 
@@ -106,11 +106,12 @@ Add the server to your MCP configuration file:
 ### Repository Management Tools
 
 #### 1. list_repositories
-List repositories in your workspace with pagination support.
+List repositories in your workspace with pagination support and optional project filtering.
 
 **Parameters:**
 - `page` (optional): Page number for pagination (default: 1)
 - `pagelen` (optional): Number of repositories per page (default: 10, max: 100)
+- `project` (optional): Filter repositories by project key
 
 **Example:**
 ```json
@@ -120,7 +121,44 @@ List repositories in your workspace with pagination support.
 }
 ```
 
-#### 2. list_branches
+**Example with project filter:**
+```json
+{
+  "page": 1,
+  "pagelen": 20,
+  "project": "MYPROJ"
+}
+```
+
+**Returns:**
+- Repository name, full name, and privacy status
+- Repository description
+- Filter information showing which project was used (if any)
+- Pagination details
+
+#### 2. list_projects
+List all projects in the workspace with pagination support.
+
+**Parameters:**
+- `page` (optional): Page number for pagination (default: 1)
+- `pagelen` (optional): Number of projects per page (default: 10, max: 100)
+
+**Example:**
+```json
+{
+  "page": 1,
+  "pagelen": 20
+}
+```
+
+**Returns:**
+- Project key, name, and description
+- Project privacy status and creation/update dates
+- Project owner information
+- Direct link to project in Bitbucket
+- Pagination details
+
+#### 3. list_branches
 List all branches in a specific repository.
 
 **Parameters:**
@@ -133,7 +171,7 @@ List all branches in a specific repository.
 }
 ```
 
-#### 3. list_tags
+#### 4. list_tags
 List all tags in a repository with detailed information.
 
 **Parameters:**
@@ -156,7 +194,7 @@ List all tags in a repository with detailed information.
 - Commit date
 - Tagger information (if available)
 
-#### 4. get_branch_commits
+#### 5. get_branch_commits
 Get detailed commit history for any branch.
 
 **Parameters:**
@@ -183,7 +221,7 @@ Get detailed commit history for any branch.
 
 ### Branch Operations
 
-#### 5. create_branch
+#### 6. create_branch
 Create a new branch in a repository.
 
 **Parameters:**
@@ -202,7 +240,7 @@ Create a new branch in a repository.
 
 ### Pull Request Management
 
-#### 6. create_pull_request
+#### 7. create_pull_request
 Create a new pull request.
 
 **Parameters:**
@@ -411,63 +449,66 @@ Get detailed information about a specific deployment.
 # List all repositories
 "List all repositories in our workspace"
 
+# List repositories filtered by project
+"List repositories in project 'MYWORKSPACE'"
+
 # Analyze a specific repository
-"Show me all branches in the 'workspace-api' repository"
-"List all tags in the 'workspace-api' repository"
-"Get the last 20 commits from the 'main' branch in 'workspace-api'"
+"Show me all branches in the 'myapp-api' repository"
+"List all tags in the 'myapp-api' repository"
+"Get the last 20 commits from the 'main' branch in 'myapp-api'"
 ```
 
 ### Development Workflow
 ```bash
 # 1. Check commit history
-"Show me the recent commits on the 'develop' branch in 'workspace-api'"
+"Show me the recent commits on the 'develop' branch in 'myapp-api'"
 
 # 2. Create a new feature branch
-"Create a branch called 'feature/payment-improvements' in the 'workspace-api' repository from the 'develop' branch"
+"Create a branch called 'feature/payment-improvements' in the 'myapp-api' repository from the 'develop' branch"
 
 # 3. Create a pull request
-"Create a pull request in 'workspace-api' from 'feature/payment-improvements' to 'develop' with title 'Improve payment processing speed' and add 'john.doe' as reviewer"
+"Create a pull request in 'myapp-api' from 'feature/payment-improvements' to 'develop' with title 'Improve payment processing speed' and add 'john.doe' as reviewer"
 ```
 
 ### Code Review Workflow
 ```bash
 # List open PRs
-"List all open pull requests in 'workspace-api'"
+"List all open pull requests in 'myapp-api'"
 
 # Get PR details and comments
-"Get details for pull request #123 in 'workspace-api'"
-"Show me all comments from pull request #123 in 'workspace-api'"
+"Get details for pull request #123 in 'myapp-api'"
+"Show me all comments from pull request #123 in 'myapp-api'"
 
 # Add review comments
-"Add comment to pull request #123 in 'workspace-api': Please add error handling for the API timeout scenario"
+"Add comment to pull request #123 in 'myapp-api': Please add error handling for the API timeout scenario"
 
 # Approve and merge
-"Approve pull request #123 in 'workspace-api'"
-"Merge pull request #123 in 'workspace-api' using squash strategy and close the source branch"
+"Approve pull request #123 in 'myapp-api'"
+"Merge pull request #123 in 'myapp-api' using squash strategy and close the source branch"
 ```
 
 ### Release Management
 ```bash
 # Check tags for version information
-"List all tags in 'workspace-web' to see the release history"
+"List all tags in 'myapp-web' to see the release history"
 
 # Analyze commits between releases
-"Get commit history for the 'release/v2.1' branch in 'workspace-web'"
+"Get commit history for the 'release/v2.1' branch in 'myapp-web'"
 ```
 
 ### Deployment Management Workflow
 ```bash
 # Monitor deployments across all environments
-"List all deployments for 'workspace-api'"
+"List all deployments for 'myapp-api'"
 
 # Check production deployments specifically
-"List deployments for 'workspace-api' filtered by 'production' environment"
+"List deployments for 'myapp-api' filtered by 'production' environment"
 
 # Get detailed deployment information
-"Get details for deployment '12345678-1234-1234-1234-123456789abc' in 'workspace-api'"
+"Get details for deployment '12345678-1234-1234-1234-123456789abc' in 'myapp-api'"
 
 # Monitor deployment status
-"Show me the current deployment status for 'workspace-api' in production environment"
+"Show me the current deployment status for 'myapp-api' in production environment"
 ```
 
 ## Error Handling
@@ -512,18 +553,9 @@ Bitbucket API has rate limits. The server will return appropriate error messages
 - Enhanced pagination support for deployment listings
 
 ### Previous Version Highlights (0.2.0):
-## What's New in Version 0.2.0
-
-### New Features Added:
 1. **Repository Tags Support**: Complete tag management with `list_tags`
 2. **Branch Commit History**: Detailed commit analysis with `get_branch_commits`
 3. **Pull Request Comments**: Full comment retrieval with `get_pull_request_comments`
-
-### Enhanced Capabilities:
-- Comprehensive commit history analysis for any branch
-- Tag-based release management support  
-- Complete pull request discussion thread access
-- Enhanced pagination support across all list operations
 
 ## Development
 

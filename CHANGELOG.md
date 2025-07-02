@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2025-02-07
+
+### Added
+- **Project Management**: New project-related functionality for enhanced workspace organization
+  - `list_projects` - List all projects in the workspace with comprehensive project information
+  - Project filtering support for `list_repositories` - Filter repositories by project key
+  - Project metadata including key, name, description, privacy status, owner information
+  - Direct links to projects in Bitbucket web interface
+
+### Enhanced
+- **Repository Filtering**: Enhanced `list_repositories` tool with optional project parameter
+  - Added `project` parameter for filtering repositories by project key
+  - Uses Bitbucket query API (`q=project.key="PROJECT_KEY"`) for precise filtering
+  - Maintains backward compatibility - project parameter is optional
+  - Returns filter information in response showing which project was used
+
+### Technical Improvements
+- Updated version to 0.4.0 across all files
+- Added new API endpoint integration: `/workspaces/{workspace}/projects`
+- Enhanced TypeScript interfaces for project data structures
+- Improved error handling for project-related API responses
+- Updated documentation with project management examples
+
+### Usage Examples
+- List all projects in workspace for better organization visibility
+- Filter repositories by specific project for focused development workflows
+- Enhanced project-based repository management
+- Better workspace organization and navigation
+
 ## [0.3.0] - 2025-07-01
 
 ### Added

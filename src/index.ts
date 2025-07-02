@@ -201,7 +201,7 @@ class BitbucketServer {
     this.server = new Server(
       {
         name: "bitbucket-mcp-server",
-        version: "0.3.0",
+        version: "0.4.0",
       },
       {
         capabilities: {
@@ -250,6 +250,30 @@ class BitbucketServer {
               pagelen: {
                 type: 'number',
                 description: 'Number of repositories per page (default: 10, max: 100)',
+                minimum: 1,
+                maximum: 100,
+              },
+              project: {
+                type: 'string',
+                description: 'Filter repositories by project key (optional)',
+              },
+            },
+          },
+        },
+        {
+          name: 'list_projects',
+          description: 'List all projects in the workspace',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              page: {
+                type: 'number',
+                description: 'Page number for pagination (default: 1)',
+                minimum: 1,
+              },
+              pagelen: {
+                type: 'number',
+                description: 'Number of projects per page (default: 10, max: 100)',
                 minimum: 1,
                 maximum: 100,
               },
@@ -599,6 +623,9 @@ class BitbucketServer {
           case 'list_repositories':
             return await this.listRepositories(request.params.arguments);
           
+          case 'list_projects':
+            return await this.listProjects(request.params.arguments);
+          
           case 'list_branches':
             return await this.listBranches(request.params.arguments);
           
@@ -674,12 +701,19 @@ class BitbucketServer {
   private async listRepositories(args: any = {}) {
     const page = args.page || 1;
     const pagelen = args.pagelen || 10;
+    const project = args.project;
+
+    // Build query parameters
+    const params: any = { page, pagelen };
+    
+    // Add project filter if specified
+    if (project) {
+      params.q = `project.key="${project}"`;
+    }
 
     const response = await this.axiosInstance.get(
       `/repositories/${BITBUCKET_WORKSPACE}`,
-      {
-        params: { page, pagelen }
-      }
+      { params }
     );
 
     const repositories: BitbucketRepository[] = response.data.values;
@@ -695,10 +729,58 @@ class BitbucketServer {
               is_private: repo.is_private,
               description: repo.description || 'No description',
             })),
+            filter: {
+              project: project || 'all projects',
+            },
             pagination: {
               page,
               pagelen,
               total: response.data.size || repositories.length,
+            }
+          }, null, 2),
+        },
+      ],
+    };
+  }
+
+  private async listProjects(args: any = {}) {
+    const page = args.page || 1;
+    const pagelen = args.pagelen || 10;
+
+    const response = await this.axiosInstance.get(
+      `/workspaces/${BITBUCKET_WORKSPACE}/projects`,
+      {
+        params: { page, pagelen }
+      }
+    );
+
+    const projects = response.data.values || [];
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            workspace: BITBUCKET_WORKSPACE,
+            projects: projects.map((project: any) => ({
+              key: project.key,
+              name: project.name,
+              description: project.description || 'No description',
+              is_private: project.is_private,
+              created_on: project.created_on,
+              updated_on: project.updated_on,
+              owner: project.owner ? {
+                display_name: project.owner.display_name,
+                username: project.owner.username,
+              } : null,
+              links: project.links?.html?.href ? {
+                html: project.links.html.href,
+              } : null,
+            })),
+            pagination: {
+              page,
+              pagelen,
+              total: response.data.size || projects.length,
             }
           }, null, 2),
         },
@@ -1156,79 +1238,103 @@ class BitbucketServer {
   private async listDeployments(args: any) {
     const { repository, environment, page = 1, pagelen = 10 } = args;
 
-    // Get environment information first to map UUIDs to names
-    const envsResponse = await this.axiosInstance.get(`/repositories/${BITBUCKET_WORKSPACE}/${repository}/environments`);
-    const environmentsMap = new Map();
-    envsResponse.data.values?.forEach((env: any) => {
-      environmentsMap.set(env.uuid, env.name);
-    });
+    try {
+      // Get environment information first to map UUIDs to names
+      const envsResponse = await this.axiosInstance.get(`/repositories/${BITBUCKET_WORKSPACE}/${repository}/environments`);
+      const environmentsMap = new Map();
+      envsResponse.data.values?.forEach((env: any) => {
+        environmentsMap.set(env.uuid, env.name);
+      });
 
-    // Get deployment data
-    const response = await this.axiosInstance.get(
-      `/repositories/${BITBUCKET_WORKSPACE}/${repository}/deployments`,
-      { params: { page, pagelen } }
-    );
+      // Get deployment data - need to fetch much more data to find recent deployments
+      const fetchSize = Math.max(pagelen * 50, 500); // Fetch much more data to find recent ones
+      const response = await this.axiosInstance.get(
+        `/repositories/${BITBUCKET_WORKSPACE}/${repository}/deployments`,
+        { params: { page: 1, pagelen: fetchSize } }
+      );
 
-    let deployments = response.data.values || [];
+      let deployments = response.data.values || [];
 
-    // Filter by environment if specified
-    if (environment) {
-      const targetEnvUuid = envsResponse.data.values?.find((env: any) => env.name === environment)?.uuid;
-      deployments = deployments.filter((dep: any) => dep.environment?.uuid === targetEnvUuid);
-    }
+      // Sort deployments by creation date (newest first)
+      deployments.sort((a: any, b: any) => new Date(b.created_on).getTime() - new Date(a.created_on).getTime());
 
-    // Transform deployment data for cleaner output
-    const transformedDeployments = deployments.map((deployment: any) => ({
-      uuid: deployment.uuid,
-      number: deployment.number,
-      created_on: deployment.created_on,
-      state: {
-        type: deployment.state.type,
-        name: deployment.state.name,
-        trigger_url: deployment.state.trigger_url || deployment.state.triggerUrl,
-      },
-      environment: {
-        uuid: deployment.environment.uuid,
-        name: environmentsMap.get(deployment.environment.uuid) || 'Unknown',
-      },
-      deployable: {
-        name: deployment.deployable.name,
-        url: deployment.deployable.url,
-        pipeline_uuid: deployment.deployable.pipeline.uuid,
-        commit_hash: deployment.deployable.commit.hash,
-        commit_url: deployment.deployable.commit.links.html.href,
-        created_on: deployment.deployable.created_on,
-      },
-      release: {
-        name: deployment.release.name,
-        url: deployment.release.url,
-        pipeline_uuid: deployment.release.pipeline.uuid,
-        commit_hash: deployment.release.commit.hash,
-        commit_url: deployment.release.commit.links.html.href,
-        created_on: deployment.release.created_on,
-      },
-    }));
+      // Filter by environment if specified
+      if (environment) {
+        const targetEnvUuid = envsResponse.data.values?.find((env: any) => env.name === environment)?.uuid;
+        deployments = deployments.filter((dep: any) => dep.environment?.uuid === targetEnvUuid);
+      }
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            repository,
-            environment: environment || 'all',
-            deployments: transformedDeployments,
-            pagination: {
-              page,
-              pagelen,
-              total: response.data.size,
-              has_next: !!response.data.next,
-              has_previous: !!response.data.previous,
-            },
-            note: "Note: This shows Bitbucket Pipeline deployments. For Buildkite deployment tracking, the webhook updates may be stored differently.",
-          }, null, 2),
+      // Take only the requested number of results
+      deployments = deployments.slice(0, pagelen);
+
+      // Transform deployment data for cleaner output
+      const transformedDeployments = deployments.map((deployment: any) => ({
+        uuid: deployment.uuid,
+        number: deployment.number,
+        created_on: deployment.created_on,
+        state: {
+          type: deployment.state.type,
+          name: deployment.state.name,
+          trigger_url: deployment.state.trigger_url || deployment.state.triggerUrl,
         },
-      ],
-    };
+        environment: {
+          uuid: deployment.environment.uuid,
+          name: environmentsMap.get(deployment.environment.uuid) || 'Unknown',
+        },
+        deployable: {
+          name: deployment.deployable.name,
+          url: deployment.deployable.url,
+          pipeline_uuid: deployment.deployable.pipeline.uuid,
+          commit_hash: deployment.deployable.commit.hash,
+          commit_url: deployment.deployable.commit.links.html.href,
+          created_on: deployment.deployable.created_on,
+        },
+        release: {
+          name: deployment.release.name,
+          url: deployment.release.url,
+          pipeline_uuid: deployment.release.pipeline.uuid,
+          commit_hash: deployment.release.commit.hash,
+          commit_url: deployment.release.commit.links.html.href,
+          created_on: deployment.release.created_on,
+        },
+      }));
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              repository,
+              environment: environment || 'all',
+              deployments: transformedDeployments,
+              pagination: {
+                page,
+                pagelen: transformedDeployments.length,
+                total: response.data.size,
+                has_next: !!response.data.next,
+                has_previous: !!response.data.previous,
+              },
+              environments_available: Array.from(environmentsMap.values()),
+              note: "Deployments are sorted by creation date (newest first). Use 'environment' parameter to filter by specific environment.",
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              error: "Failed to retrieve deployments",
+              repository,
+              environment: environment || 'all',
+              details: error instanceof Error ? error.message : String(error),
+            }, null, 2),
+          },
+        ],
+      };
+    }
   }
 
   private async getDeployment(args: any) {

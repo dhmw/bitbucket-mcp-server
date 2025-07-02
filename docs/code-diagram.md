@@ -20,6 +20,8 @@ classDiagram
         +handleCreateBranch(args): Promise~object~
         +handleCreatePullRequest(args): Promise~object~
         +handleListPullRequests(args): Promise~object~
+        +handleListDeployments(args): Promise~object~
+        +handleGetDeployment(args): Promise~object~
     }
 
     class ToolHandler {
@@ -30,6 +32,8 @@ classDiagram
         +createBranch(repository, branchName, sourceBranch): Promise~object~
         +createPullRequest(repository, title, description, sourceBranch, destinationBranch): Promise~object~
         +listPullRequests(repository, state): Promise~BitbucketPullRequest[]~
+        +listDeployments(repository, environment): Promise~BitbucketDeployment[]~
+        +getDeployment(repository, deploymentUuid): Promise~BitbucketDeployment~
     }
 
     class BitbucketRepository {
@@ -58,6 +62,16 @@ classDiagram
         +created_on: string
     }
 
+    class BitbucketDeployment {
+        +uuid: string
+        +number: number
+        +created_on: string
+        +state: object
+        +environment: object
+        +deployable: object
+        +release: object
+    }
+
     class AuthenticationConfig {
         +username: string
         +appPassword: string
@@ -71,6 +85,7 @@ classDiagram
     ToolHandler --> BitbucketRepository
     ToolHandler --> BitbucketBranch
     ToolHandler --> BitbucketPullRequest
+    ToolHandler --> BitbucketDeployment
 ```
 
 ```mermaid
@@ -92,9 +107,18 @@ sequenceDiagram
     TH-->>MCP: Formatted pull request data
     MCP-->>AI: MCP tool response with pull request details
 
+    Note over AI,API: Deployment tracking flow
+    AI->>MCP: listDeployments({repository, environment})
+    MCP->>TH: handleListDeployments(args)
+    TH->>API: GET /repositories/{workspace}/{repo}/environments
+    TH->>API: GET /repositories/{workspace}/{repo}/deployments
+    API-->>TH: Deployment data with environment mapping
+    TH->>TH: Filter by environment and format response
+    TH-->>MCP: Formatted deployment list
+    MCP-->>AI: MCP tool response with deployment details
+
     Note over AI,API: Error handling flow
     API-->>TH: Error response (e.g., 400, 401, 404)
     TH->>TH: Handle API error
     TH-->>MCP: Formatted error response
     MCP-->>AI: MCP error response
-```
