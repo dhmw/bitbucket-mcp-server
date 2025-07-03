@@ -651,11 +651,26 @@ Bitbucket API has rate limits. The server will return appropriate error messages
 ```
 bitbucket-mcp-server/
 ├── src/
-│   └── index.ts          # Main server implementation
+│   ├── index.ts                      # Main server orchestrator
+│   ├── types.ts                      # TypeScript interfaces and type definitions
+│   ├── tools.ts                      # MCP tool schema definitions
+│   └── handlers/
+│       ├── repository.ts             # Repository operations (list, clone, branches, tags, commits)
+│       ├── branch.ts                 # Branch operations (create branch)
+│       ├── pullRequest.ts            # Pull request operations (create, list, approve, merge, comments)
+│       └── deployment.ts             # Deployment operations (list, get details)
 ├── build/
-│   └── index.js          # Compiled JavaScript
+│   ├── index.js                      # Compiled main server
+│   ├── types.js                      # Compiled type definitions
+│   ├── tools.js                      # Compiled tool schemas
+│   └── handlers/
+│       ├── repository.js             # Compiled repository handlers
+│       ├── branch.js                 # Compiled branch handlers
+│       ├── pullRequest.js            # Compiled pull request handlers
+│       └── deployment.js             # Compiled deployment handlers
 ├── package.json          # Dependencies and scripts
 ├── tsconfig.json         # TypeScript configuration
+├── CHANGELOG.md          # Version history and changes
 └── README.md            # This documentation
 ```
 
