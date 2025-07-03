@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2025-07-03
+
+### Added
+- **Repository Cloning**: SSH and HTTPS repository cloning support
+  - `clone_repository` - Generate git clone commands with SSH (default) or HTTPS protocol
+  - Support for specific branch cloning with `--branch` parameter
+  - Custom directory naming for cloned repositories
+  - SSH setup instructions and prerequisites for secure cloning
+  - Complete git command generation ready for terminal execution
+  - Repository verification before generating clone commands
+
+### Enhanced
+- **Protocol Flexibility**: SSH protocol as default for secure cloning with HTTPS fallback option
+- **Branch-Specific Cloning**: Support for cloning specific branches directly
+- **User Experience**: Comprehensive clone instructions with setup guidance for SSH
+- **Error Handling**: Repository validation and detailed error messages for clone operations
+
+### Technical Improvements
+- Updated version to 0.5.0 across all files
+- Added new API endpoint integration for repository clone URLs
+- Enhanced TypeScript interfaces for clone URL data structures
+- Improved Bitbucket API response parsing for clone links
+- Added comprehensive SSH setup documentation
+
+### Code Structure Improvements
+- **Modular Architecture**: Refactored monolithic index.ts into logical, maintainable modules
+- **Separation of Concerns**: Split code into dedicated handler classes by functionality
+  - `src/types.ts` - Centralized TypeScript interfaces and type definitions
+  - `src/tools.ts` - MCP tool schema definitions and configurations
+  - `src/handlers/repository.ts` - Repository operations (list, clone, branches, tags, commits)
+  - `src/handlers/branch.ts` - Branch operations (create branch)
+  - `src/handlers/pullRequest.ts` - Pull request operations (create, list, approve, merge, comments)
+  - `src/handlers/deployment.ts` - Deployment operations (list, get details)
+  - `src/index.ts` - Main server orchestrator using modular handlers
+- **Improved Maintainability**: Each module has single responsibility, making code easier to navigate and modify
+- **Enhanced Readability**: Clean imports and organized file structure for better developer experience
+- **Scalable Design**: Easy to extend functionality by adding new handlers or modifying existing ones
+- **Consistent Error Handling**: Centralized error management in main server class
+- **Dependency Injection**: Handler classes receive dependencies via constructor for better testability
+
+### Usage Examples
+- Generate SSH clone commands (recommended and default)
+- Generate HTTPS clone commands for environments without SSH setup
+- Clone specific branches directly without additional git operations
+- Custom directory naming for better project organization
+- Complete workflow integration for repository setup
+
 ## [0.4.0] - 2025-02-07
 
 ### Added
@@ -42,6 +89,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   - Support for deployment state tracking (UNDEPLOYED, IN_PROGRESS, SUCCESSFUL, FAILED, STOPPED)
   - Environment-based deployment filtering
   - Complete deployment metadata including release and commit information
+  ***Be aware that bitbucket does not provide a way to get the most recent deployments, so we need to fetch a lot of data and filter it ourselves. This can be slow for large repositories with many deployments, basically makes the deployment functionality unusable for large repositories.***
 
 ### Enhanced
 - **Deployment Interface**: New `BitbucketDeployment` TypeScript interface for type safety

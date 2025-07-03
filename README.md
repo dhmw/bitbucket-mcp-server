@@ -2,7 +2,7 @@
 
 A Model Context Protocol (MCP) server that provides comprehensive tools for interacting with Bitbucket repositories through the Bitbucket API. This server enables agents to perform repository operations, manage branches, handle pull requests, analyze commit history, work with repository tags, and monitor deployments.
 
-## Version 0.4.0
+## Version 0.5.0
 
 ## Features
 
@@ -11,6 +11,7 @@ A Model Context Protocol (MCP) server that provides comprehensive tools for inte
 - Browse repository branches
 - List repository tags with detailed information
 - Get commit history for any branch
+- Clone repositories using SSH (default) or HTTPS protocol
 
 ### Branch Operations
 - Create new branches from any source branch
@@ -442,6 +443,58 @@ Get detailed information about a specific deployment.
 - Deployment state and timing
 - Links to related resources
 
+### Repository Cloning
+
+#### 16. clone_repository
+Get repository clone information and generate git clone commands using SSH (default) or HTTPS protocol.
+
+**Parameters:**
+- `repository` (required): Repository name
+- `directory` (optional): Local directory to clone into (defaults to repository name)
+- `protocol` (optional): Protocol to use - "ssh" or "https" (default: "ssh")
+- `branch` (optional): Specific branch to clone
+
+**Example - SSH cloning (default):**
+```json
+{
+  "repository": "my-awesome-project",
+  "directory": "my-local-project",
+  "protocol": "ssh"
+}
+```
+
+**Example - HTTPS cloning:**
+```json
+{
+  "repository": "my-awesome-project",
+  "directory": "my-local-project",
+  "protocol": "https"
+}
+```
+
+**Example - Clone specific branch:**
+```json
+{
+  "repository": "my-awesome-project",
+  "branch": "develop",
+  "protocol": "ssh"
+}
+```
+
+**Returns:**
+- Repository information (name, full name)
+- Clone URL for the specified protocol
+- Complete git clone command ready to execute
+- SSH setup instructions (for SSH protocol)
+- Target directory information
+
+**SSH Prerequisites (for SSH protocol):**
+1. SSH keys configured in your Bitbucket account
+2. SSH agent running with your key loaded
+3. Bitbucket.org added to your known_hosts
+
+The tool provides the complete git clone command that you can copy and execute in your terminal.
+
 ## Usage Examples
 
 ### Repository Analysis Workflow
@@ -450,65 +503,83 @@ Get detailed information about a specific deployment.
 "List all repositories in our workspace"
 
 # List repositories filtered by project
-"List repositories in project 'MYWORKSPACE'"
+"List repositories in project 'MYPROJECT'"
 
 # Analyze a specific repository
-"Show me all branches in the 'myapp-api' repository"
-"List all tags in the 'myapp-api' repository"
-"Get the last 20 commits from the 'main' branch in 'myapp-api'"
+"Show me all branches in the 'myrepo-api' repository"
+"List all tags in the 'myrepo-api' repository"
+"Get the last 20 commits from the 'main' branch in 'myrepo-api'"
 ```
 
 ### Development Workflow
 ```bash
 # 1. Check commit history
-"Show me the recent commits on the 'develop' branch in 'myapp-api'"
+"Show me the recent commits on the 'develop' branch in 'myrepo-api'"
 
 # 2. Create a new feature branch
-"Create a branch called 'feature/payment-improvements' in the 'myapp-api' repository from the 'develop' branch"
+"Create a branch called 'feature/payment-improvements' in the 'myrepo-api' repository from the 'develop' branch"
 
 # 3. Create a pull request
-"Create a pull request in 'myapp-api' from 'feature/payment-improvements' to 'develop' with title 'Improve payment processing speed' and add 'john.doe' as reviewer"
+"Create a pull request in 'myrepo-api' from 'feature/payment-improvements' to 'develop' with title 'Improve payment processing speed' and add 'john.doe' as reviewer"
 ```
 
 ### Code Review Workflow
 ```bash
 # List open PRs
-"List all open pull requests in 'myapp-api'"
+"List all open pull requests in 'myrepo-api'"
 
 # Get PR details and comments
-"Get details for pull request #123 in 'myapp-api'"
-"Show me all comments from pull request #123 in 'myapp-api'"
+"Get details for pull request #123 in 'myrepo-api'"
+"Show me all comments from pull request #123 in 'myrepo-api'"
 
 # Add review comments
-"Add comment to pull request #123 in 'myapp-api': Please add error handling for the API timeout scenario"
+"Add comment to pull request #123 in 'myrepo-api': Please add error handling for the API timeout scenario"
 
 # Approve and merge
-"Approve pull request #123 in 'myapp-api'"
-"Merge pull request #123 in 'myapp-api' using squash strategy and close the source branch"
+"Approve pull request #123 in 'myrepo-api'"
+"Merge pull request #123 in 'myrepo-api' using squash strategy and close the source branch"
 ```
 
 ### Release Management
 ```bash
 # Check tags for version information
-"List all tags in 'myapp-web' to see the release history"
+"List all tags in 'myrepo-web' to see the release history"
 
 # Analyze commits between releases
-"Get commit history for the 'release/v2.1' branch in 'myapp-web'"
+"Get commit history for the 'release/v2.1' branch in 'myrepo-web'"
 ```
 
 ### Deployment Management Workflow
 ```bash
 # Monitor deployments across all environments
-"List all deployments for 'myapp-api'"
+"List all deployments for 'myrepo-api'"
 
 # Check production deployments specifically
-"List deployments for 'myapp-api' filtered by 'production' environment"
+"List deployments for 'myrepo-api' filtered by 'production' environment"
 
 # Get detailed deployment information
-"Get details for deployment '12345678-1234-1234-1234-123456789abc' in 'myapp-api'"
+"Get details for deployment '12345678-1234-1234-1234-123456789abc' in 'myrepo-api'"
 
 # Monitor deployment status
-"Show me the current deployment status for 'myapp-api' in production environment"
+"Show me the current deployment status for 'myrepo-api' in production environment"
+```
+
+### Repository Cloning Workflow
+```bash
+# Clone repository using SSH (default and recommended)
+"Generate clone command for 'myrepo-api' repository using SSH"
+
+# Clone repository using HTTPS
+"Generate clone command for 'myrepo-api' repository using HTTPS protocol"
+
+# Clone specific branch
+"Generate clone command for 'myrepo-api' repository from the 'develop' branch using SSH"
+
+# Clone to custom directory
+"Generate clone command for 'myrepo-api' repository to directory 'my-local-api-project' using SSH"
+
+# Complete workflow example
+"Generate SSH clone command for 'myrepo-web' repository from 'main' branch to 'myrepo-frontend' directory"
 ```
 
 ## Error Handling
@@ -535,9 +606,26 @@ Errors are returned with descriptive messages to help troubleshoot issues.
 
 Bitbucket API has rate limits. The server will return appropriate error messages if limits are exceeded. Consider implementing exponential backoff for high-frequency operations.
 
-## What's New in Version 0.3.0
+## What's New in Version 0.5.0
 
 ### New Features Added:
+1. **Repository Cloning**: SSH and HTTPS repository cloning support
+   - `clone_repository` - Generate git clone commands with SSH (default) or HTTPS protocol
+   - Support for specific branch cloning
+   - Custom directory naming
+   - SSH setup instructions and prerequisites
+   - Complete git command generation ready for terminal execution
+
+### Enhanced Capabilities:
+- SSH protocol as default for secure cloning
+- Flexible protocol selection (SSH/HTTPS)
+- Branch-specific cloning support
+- Comprehensive clone instructions with setup guidance
+- Repository verification before generating clone commands
+
+### Previous Version Highlights:
+
+#### Version 0.4.0:
 1. **Deployment Management**: Complete deployment monitoring and management capabilities
    - `list_deployments` - List and filter deployments by environment
    - `get_deployment` - Get detailed deployment information
@@ -545,14 +633,14 @@ Bitbucket API has rate limits. The server will return appropriate error messages
    - Environment-based filtering and monitoring
    - Complete deployment metadata including release and commit information
 
-### Enhanced Capabilities:
+#### Version 0.3.0:
 - Deployment status tracking across multiple environments
 - Release and commit information for each deployment
 - Deployment history analysis and monitoring
 - Environment-specific deployment filtering
 - Enhanced pagination support for deployment listings
 
-### Previous Version Highlights (0.2.0):
+#### Version 0.2.0:
 1. **Repository Tags Support**: Complete tag management with `list_tags`
 2. **Branch Commit History**: Detailed commit analysis with `get_branch_commits`
 3. **Pull Request Comments**: Full comment retrieval with `get_pull_request_comments`
