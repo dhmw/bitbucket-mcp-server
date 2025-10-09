@@ -20,30 +20,163 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 import { TOOL_SCHEMAS } from './tools.js';
 import { RepositoryHandlers } from './handlers/repository.js';
 import { BranchHandlers } from './handlers/branch.js';
 import { PullRequestHandlers } from './handlers/pullRequest.js';
 import { DeploymentHandlers } from './handlers/deployment.js';
+import { runOAuthFlow, TokenData } from './oauth-flow.js';
 
 // Environment variables for authentication
-const BITBUCKET_USERNAME = process.env.BITBUCKET_USERNAME;
-const BITBUCKET_APP_PASSWORD = process.env.BITBUCKET_APP_PASSWORD;
+const BITBUCKET_OAUTH_CLIENT_ID = process.env.BITBUCKET_OAUTH_CLIENT_ID;
+const BITBUCKET_OAUTH_CLIENT_SECRET = process.env.BITBUCKET_OAUTH_CLIENT_SECRET;
+const BITBUCKET_OAUTH_TOKEN_FILE = process.env.BITBUCKET_OAUTH_TOKEN_FILE || path.join(os.homedir(), '.bitbucket-mcp-tokens.json');
 const BITBUCKET_WORKSPACE = process.env.BITBUCKET_WORKSPACE;
 
-if (!BITBUCKET_USERNAME || !BITBUCKET_APP_PASSWORD) {
-  throw new Error('BITBUCKET_USERNAME and BITBUCKET_APP_PASSWORD environment variables are required');
+// Validate required environment variables
+if (!BITBUCKET_OAUTH_CLIENT_ID || !BITBUCKET_OAUTH_CLIENT_SECRET) {
+  throw new Error('BITBUCKET_OAUTH_CLIENT_ID and BITBUCKET_OAUTH_CLIENT_SECRET environment variables are required');
 }
 
 if (!BITBUCKET_WORKSPACE) {
   throw new Error('BITBUCKET_WORKSPACE environment variable is required');
 }
 
+// OAuth2 token management
+let tokenData: TokenData | null = null;
+
+async function loadTokens(): Promise<void> {
+  try {
+    if (fs.existsSync(BITBUCKET_OAUTH_TOKEN_FILE)) {
+      const data = fs.readFileSync(BITBUCKET_OAUTH_TOKEN_FILE, 'utf8');
+      tokenData = JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Warning: Failed to load OAuth tokens:', error);
+  }
+}
+
+async function saveTokens(tokens: TokenData): Promise<void> {
+  try {
+    fs.writeFileSync(BITBUCKET_OAUTH_TOKEN_FILE, JSON.stringify(tokens, null, 2), { mode: 0o600 });
+    tokenData = tokens;
+  } catch (error) {
+    console.error('Warning: Failed to save OAuth tokens:', error);
+  }
+}
+
+// OAuth2 authorization flow wrapper
+async function runAuthorizationFlow(): Promise<TokenData> {
+  return await runOAuthFlow({
+    clientId: BITBUCKET_OAUTH_CLIENT_ID!,
+    clientSecret: BITBUCKET_OAUTH_CLIENT_SECRET!,
+  });
+}
+
+// Track if we're currently in an authorization flow to provide better error messages
+let authorizationInProgress = false;
+
+async function getOAuthAccessToken(): Promise<string> {
+  // Load tokens if not already loaded
+  if (!tokenData) {
+    await loadTokens();
+  }
+
+  // Return cached token if still valid (with 5 minute buffer)
+  if (tokenData && tokenData.access_token && Date.now() < tokenData.expires_at - 300000) {
+    return tokenData.access_token;
+  }
+
+  // Try to refresh token if we have a refresh token
+  if (tokenData?.refresh_token) {
+    try {
+      const response = await axios.post(
+        'https://bitbucket.org/site/oauth2/access_token',
+        `grant_type=refresh_token&refresh_token=${tokenData.refresh_token}`,
+        {
+          auth: {
+            username: BITBUCKET_OAUTH_CLIENT_ID!,
+            password: BITBUCKET_OAUTH_CLIENT_SECRET!,
+          },
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+
+      const newTokens: TokenData = {
+        access_token: response.data.access_token,
+        refresh_token: response.data.refresh_token || tokenData.refresh_token,
+        expires_at: Date.now() + (response.data.expires_in * 1000),
+        scopes: response.data.scopes || response.data.scope || tokenData.scopes,
+      };
+
+      await saveTokens(newTokens);
+      return newTokens.access_token;
+    } catch (error) {
+      // Refresh failed, need to re-authorize
+      if (authorizationInProgress) {
+        throw new Error('Authorization already in progress. Please complete the authorization in your browser.');
+      }
+
+      console.error('⚠️  Token refresh failed, starting new authorization flow...');
+      authorizationInProgress = true;
+
+      // Start the flow in the background
+      runAuthorizationFlow()
+        .then(async (tokens) => {
+          await saveTokens(tokens);
+          authorizationInProgress = false;
+          console.error('✅ Authorization completed! You can now retry your request.');
+        })
+        .catch((error) => {
+          authorizationInProgress = false;
+          console.error('❌ Authorization failed:', error.message);
+        });
+
+      throw new Error(
+        'Token refresh failed. Opening browser for re-authorization...\n\n' +
+        'A browser window should open automatically. If it doesn\'t, check the MCP server logs for the authorization URL.\n' +
+        'Please authorize the application, then try your request again.'
+      );
+    }
+  }
+
+  // No refresh token available - start authorization flow
+  if (authorizationInProgress) {
+    throw new Error('Authorization already in progress. Please complete the authorization in your browser.');
+  }
+
+  console.error('⚠️  No OAuth tokens found, starting authorization flow...');
+  authorizationInProgress = true;
+
+  // Start the flow in the background
+  runAuthorizationFlow()
+    .then(async (tokens) => {
+      await saveTokens(tokens);
+      authorizationInProgress = false;
+      console.error('✅ Authorization completed! You can now retry your request.');
+    })
+    .catch((error) => {
+      authorizationInProgress = false;
+      console.error('❌ Authorization failed:', error.message);
+    });
+
+  throw new Error(
+    'OAuth authorization required. Opening browser for authorization...\n\n' +
+    'A browser window should open automatically at http://localhost:8234\n' +
+    'Please authorize the application in your browser, then try your request again.'
+  );
+}
+
 class BitbucketServer {
   private server: Server;
   private axiosInstance: AxiosInstance;
-  
+
   // Handler instances
   private repositoryHandlers: RepositoryHandlers;
   private branchHandlers: BranchHandlers;
@@ -54,7 +187,7 @@ class BitbucketServer {
     this.server = new Server(
       {
         name: "bitbucket-mcp-server",
-        version: "0.5.0",
+        version: "0.6.0",
       },
       {
         capabilities: {
@@ -66,24 +199,27 @@ class BitbucketServer {
     // Create axios instance with Bitbucket API configuration
     this.axiosInstance = axios.create({
       baseURL: 'https://api.bitbucket.org/2.0',
-      auth: {
-        username: BITBUCKET_USERNAME!,
-        password: BITBUCKET_APP_PASSWORD!,
-      },
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
     });
 
+    // Add OAuth2 interceptor to inject Bearer token on every request
+    this.axiosInstance.interceptors.request.use(async (config) => {
+      const token = await getOAuthAccessToken();
+      config.headers['Authorization'] = `Bearer ${token}`;
+      return config;
+    });
+
     // Initialize handler instances
     this.repositoryHandlers = new RepositoryHandlers(this.axiosInstance, BITBUCKET_WORKSPACE!);
     this.branchHandlers = new BranchHandlers(this.axiosInstance, BITBUCKET_WORKSPACE!);
-    this.pullRequestHandlers = new PullRequestHandlers(this.axiosInstance, BITBUCKET_WORKSPACE!, BITBUCKET_USERNAME!);
+    this.pullRequestHandlers = new PullRequestHandlers(this.axiosInstance, BITBUCKET_WORKSPACE!);
     this.deploymentHandlers = new DeploymentHandlers(this.axiosInstance, BITBUCKET_WORKSPACE!);
 
     this.setupToolHandlers();
-    
+
     // Error handling
     this.server.onerror = (error) => console.error('[MCP Error]', error);
     process.on('SIGINT', async () => {
@@ -105,58 +241,58 @@ class BitbucketServer {
           // Repository operations
           case 'list_repositories':
             return await this.repositoryHandlers.listRepositories(request.params.arguments);
-          
+
           case 'list_projects':
             return await this.repositoryHandlers.listProjects(request.params.arguments);
-          
+
           case 'list_branches':
             return await this.repositoryHandlers.listBranches(request.params.arguments);
-          
+
           case 'list_tags':
             return await this.repositoryHandlers.listTags(request.params.arguments);
-          
+
           case 'get_branch_commits':
             return await this.repositoryHandlers.getBranchCommits(request.params.arguments);
-          
+
           case 'clone_repository':
             return await this.repositoryHandlers.cloneRepository(request.params.arguments);
-          
+
           // Branch operations
           case 'create_branch':
             return await this.branchHandlers.createBranch(request.params.arguments);
-          
+
           // Pull Request operations
           case 'create_pull_request':
             return await this.pullRequestHandlers.createPullRequest(request.params.arguments);
-          
+
           case 'list_pull_requests':
             return await this.pullRequestHandlers.listPullRequests(request.params.arguments);
-          
+
           case 'get_pull_request':
             return await this.pullRequestHandlers.getPullRequest(request.params.arguments);
-          
+
           case 'approve_pull_request':
             return await this.pullRequestHandlers.approvePullRequest(request.params.arguments);
-          
+
           case 'decline_pull_request':
             return await this.pullRequestHandlers.declinePullRequest(request.params.arguments);
-          
+
           case 'merge_pull_request':
             return await this.pullRequestHandlers.mergePullRequest(request.params.arguments);
-          
+
           case 'get_pull_request_comments':
             return await this.pullRequestHandlers.getPullRequestComments(request.params.arguments);
-          
+
           case 'add_pull_request_comment':
             return await this.pullRequestHandlers.addPullRequestComment(request.params.arguments);
-          
+
           // Deployment operations
           case 'list_deployments':
             return await this.deploymentHandlers.listDeployments(request.params.arguments);
-          
+
           case 'get_deployment':
             return await this.deploymentHandlers.getDeployment(request.params.arguments);
-          
+
           default:
             throw new McpError(
               ErrorCode.MethodNotFound,
@@ -172,7 +308,7 @@ class BitbucketServer {
           const axiosError = error as AxiosError;
           const status = axiosError.response?.status;
           const message = axiosError.response?.data || axiosError.message;
-          
+
           throw new McpError(
             ErrorCode.InternalError,
             `Bitbucket API error (${status}): ${JSON.stringify(message)}`

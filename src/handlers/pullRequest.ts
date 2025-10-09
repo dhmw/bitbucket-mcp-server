@@ -8,8 +8,7 @@ import { BitbucketPullRequest, BitbucketComment } from '../types.js';
 export class PullRequestHandlers {
   constructor(
     private axiosInstance: AxiosInstance,
-    private workspace: string,
-    private username: string
+    private workspace: string
   ) {}
 
   async createPullRequest(args: any) {
@@ -153,7 +152,6 @@ export class PullRequestHandlers {
             message: `Pull request #${pull_request_id} approved successfully`,
             repository,
             pull_request_id,
-            approved_by: this.username,
             approval_date: new Date().toISOString(),
           }, null, 2),
         },
@@ -180,7 +178,6 @@ export class PullRequestHandlers {
             repository,
             pull_request_id,
             reason: reason || 'No reason provided',
-            declined_by: this.username,
           }, null, 2),
         },
       ],
