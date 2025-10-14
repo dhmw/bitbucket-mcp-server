@@ -2,13 +2,18 @@
 
 Model Context Protocol (MCP) server for Bitbucket Cloud with per-user OAuth2 authentication.
 
-## Quick Setup (5 minutes)
+## Quick Setup
 
-### 1. Create a Bitbucket OAuth Consumer
+### Part A: Platform Admin Setup (Do Once Per Workspace)
 
-First, you need to create an OAuth consumer in your Bitbucket workspace to get the client credentials:
+**Who does this:** Bitbucket workspace administrator
+**How often:** Once per Bitbucket workspace
+**Purpose:** Create OAuth credentials that all MCP users in your organization will share
+
+#### 1. Create a Bitbucket OAuth Consumer
 
 1. **Navigate to OAuth Settings**
+
    - Go to [Bitbucket.org](https://bitbucket.org)
    - Click on your workspace avatar (bottom left)
    - Select the workspace you want to use
@@ -17,6 +22,7 @@ First, you need to create an OAuth consumer in your Bitbucket workspace to get t
    - Or use direct URL: `https://bitbucket.org/<your-workspace>/workspace/settings/api`
 
 2. **Create New Consumer**
+
    - Click **Add consumer**
    - Fill in the details:
      - **Name**: `Bitbucket MCP Server` (or any name you prefer)
@@ -25,11 +31,13 @@ First, you need to create an OAuth consumer in your Bitbucket workspace to get t
      - **URL**: Leave empty or add your company URL (optional)
 
 3. **Configure Consumer Settings**
+
    - **IMPORTANT**: **Do NOT check** "This is a private consumer"
    - This must be a public OAuth consumer for the authorization flow to work
 
 4. **Set Permissions**
    Select the following scopes (checkboxes):
+
    - **Account**
      - ☑ Read
    - **Workspace membership**
@@ -45,11 +53,25 @@ First, you need to create an OAuth consumer in your Bitbucket workspace to get t
      - ☑ Read
 
 5. **Save and Copy Credentials**
+
    - Click **Save**
    - You'll see your **Key** (Client ID) and **Secret** (Client Secret)
    - **IMPORTANT**: Copy both values immediately - you won't be able to see the secret again!
 
-### 2. Build the Server
+6. **Distribute Credentials to MCP Users**
+   - Share the **Client ID** and **Client Secret** with users who need MCP access
+   - Also provide the **workspace name/slug** (e.g., `mycompany`)
+   - Users will need these values for their personal Claude Code configuration
+
+---
+
+### Part B: MCP User Setup (Each User Does This)
+
+**Who does this:** Each individual developer/user
+**How often:** Once per user
+**Purpose:** Install and configure the MCP server for your personal Claude Code installation
+
+#### 1. Build the Server
 
 ```bash
 cd <path to this repo clone>
@@ -57,9 +79,9 @@ npm install
 npm run build
 ```
 
-### 3. Configure Claude Code
+#### 2. Configure Claude Code
 
-Add to your `~/.claude.json` (using the credentials from step 1):
+Add to your `~/.claude.json` (using the credentials provided by your platform admin):
 
 ```json
 {
@@ -67,13 +89,11 @@ Add to your `~/.claude.json` (using the credentials from step 1):
     "bitbucket": {
       "type": "stdio",
       "command": "node",
-      "args": [
-        "/path/to/bitbucket-mcp-server/build/index.js"
-      ],
+      "args": ["/path/to/bitbucket-mcp-server/build/index.js"],
       "env": {
         "BITBUCKET_WORKSPACE": "your-workspace-name",
-        "BITBUCKET_OAUTH_CLIENT_ID": "your-client-key-from-step-1",
-        "BITBUCKET_OAUTH_CLIENT_SECRET": "your-client-secret-from-step-1"
+        "BITBUCKET_OAUTH_CLIENT_ID": "your-client-key-from-admin",
+        "BITBUCKET_OAUTH_CLIENT_SECRET": "your-client-secret-from-admin"
       }
     }
   }
@@ -81,18 +101,21 @@ Add to your `~/.claude.json` (using the credentials from step 1):
 ```
 
 **Replace:**
+
 - `/path/to/bitbucket-mcp-server/build/index.js` - Full path to where you cloned this repo
 - `your-workspace-name` - Your Bitbucket workspace slug (e.g., `mycompany`, not the display name)
-- `your-client-key-from-step-1` - The **Key** value from the OAuth consumer you created
-- `your-client-secret-from-step-1` - The **Secret** value from the OAuth consumer
+- `your-client-key-from-admin` - The **Key** value provided by your admin
+- `your-client-secret-from-admin` - The **Secret** value provided by your admin
 
-### 4. Start Claude Code
+#### 3. Authorize Your Personal Access
 
 When you first use Bitbucket tools, the server will automatically:
 
 - Open your browser to Bitbucket authorization page
-- Ask you to authorize the app
-- Save your personal tokens to `~/.bitbucket-mcp-tokens.json`
+- Ask you to authorize the app **with your personal Bitbucket account**
+- Save **your personal tokens** to `~/.bitbucket-mcp-tokens.json`
+
+**Important:** Even though all users share the same OAuth app credentials, each user authorizes with their own Bitbucket account and gets their own isolated tokens. Actions are performed as the individual user.
 
 Done! Now you can ask Claude:
 
@@ -148,6 +171,7 @@ Done! Now you can ask Claude:
 **Problem**: "Invalid OAuth credentials" or "Unauthorized" errors
 
 **Solutions**:
+
 - Verify the OAuth consumer is **NOT** marked as "This is a private consumer"
 - Double-check that you copied the **Key** (not the name) as your Client ID
 - Confirm the **Secret** was copied correctly (you can regenerate it if needed)
@@ -159,12 +183,14 @@ Done! Now you can ask Claude:
 This error typically means the OAuth authorization hasn't been completed yet.
 
 **First time setup**:
+
 1. The MCP server should automatically open your browser to authorize
 2. If the browser doesn't open, check the Claude Code logs for a URL like `http://localhost:8234`
 3. Open that URL in your browser and complete the authorization
 4. After authorizing, retry your command in Claude Code
 
 **If you've already authorized**:
+
 - Check that `~/.bitbucket-mcp-tokens.json` exists and is readable
 - Try deleting `~/.bitbucket-mcp-tokens.json` and restart Claude Code to re-authorize
 - Verify your `BITBUCKET_WORKSPACE` environment variable matches your workspace slug (not display name)
@@ -172,6 +198,7 @@ This error typically means the OAuth authorization hasn't been completed yet.
 ### Authorization not working
 
 The server will automatically start the OAuth flow when needed. If the browser doesn't open automatically:
+
 - Look for the authorization URL in the Claude Code MCP logs
 - Copy and paste the URL into your browser manually
 - The URL should start with `http://localhost:8234`
@@ -183,6 +210,7 @@ The server will automatically re-authorize if token refresh fails. Just approve 
 ### Permission denied errors
 
 If you see errors like "Insufficient privileges" or "Permission denied":
+
 - Go back to your OAuth consumer settings in Bitbucket
 - Verify all required permissions are enabled (especially Projects:Write and Repositories:Admin)
 - You may need to re-authorize (delete `~/.bitbucket-mcp-tokens.json` and restart Claude Code)
@@ -208,6 +236,7 @@ This is useful for testing your OAuth setup without involving Claude Code.
 ## Example Use Cases
 
 ### Project Management
+
 ```
 Create a new project with key "WEB" called "Web Applications"
 List all projects in the workspace
@@ -215,6 +244,7 @@ Update the WEB project description
 ```
 
 ### Repository Creation
+
 ```
 Create a repository called "my-new-service" in the WEB project
 Create a private repository with issues and wiki enabled
@@ -222,6 +252,7 @@ List all repositories in the WEB project
 ```
 
 ### Development Workflow
+
 ```
 Create a branch called "feature/new-login" in my-new-service
 Show me the commit history for the main branch
@@ -273,16 +304,16 @@ BITBUCKET_OAUTH_CLIENT_ID=your-id BITBUCKET_OAUTH_CLIENT_SECRET=your-secret BITB
 
 This table shows which OAuth permissions are required for each feature:
 
-| Feature | Required Permissions |
-|---------|---------------------|
-| List repositories | Account:Read, Repositories:Read |
-| Create repositories | Repositories:Admin |
-| List projects | Account:Read, Workspace:Read |
-| Create/update projects | Projects:Write |
-| List/create branches | Repositories:Write |
-| Create pull requests | Pull requests:Write |
-| Approve/merge PRs | Pull requests:Write |
-| View deployments | Pipelines:Read (optional) |
+| Feature                | Required Permissions            |
+| ---------------------- | ------------------------------- |
+| List repositories      | Account:Read, Repositories:Read |
+| Create repositories    | Repositories:Admin              |
+| List projects          | Account:Read, Workspace:Read    |
+| Create/update projects | Projects:Write                  |
+| List/create branches   | Repositories:Write              |
+| Create pull requests   | Pull requests:Write             |
+| Approve/merge PRs      | Pull requests:Write             |
+| View deployments       | Pipelines:Read (optional)       |
 
 **Recommended setup**: Enable all permissions listed in Step 1 to ensure full functionality.
 
