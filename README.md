@@ -2,11 +2,15 @@
 
 Model Context Protocol (MCP) server for Bitbucket Cloud with per-user OAuth2 authentication.
 
-## Quick Setup (5 minutes)
+## Quick Setup
 
-### 1. Create a Bitbucket OAuth Consumer
+### Part A: Platform Admin Setup (Do Once Per Workspace)
 
-First, you need to create an OAuth consumer in your Bitbucket workspace to get the client credentials:
+**Who does this:** Bitbucket workspace administrator
+**How often:** Once per Bitbucket workspace
+**Purpose:** Create OAuth credentials that all MCP users in your organization will share
+
+#### 1. Create a Bitbucket OAuth Consumer
 
 1. **Navigate to OAuth Settings**
    - Go to [Bitbucket.org](https://bitbucket.org)
@@ -49,7 +53,20 @@ First, you need to create an OAuth consumer in your Bitbucket workspace to get t
    - You'll see your **Key** (Client ID) and **Secret** (Client Secret)
    - **IMPORTANT**: Copy both values immediately - you won't be able to see the secret again!
 
-### 2. Build the Server
+6. **Distribute Credentials to MCP Users**
+   - Share the **Client ID** and **Client Secret** with users who need MCP access
+   - Also provide the **workspace name/slug** (e.g., `mycompany`)
+   - Users will need these values for their personal Claude Code configuration
+
+---
+
+### Part B: MCP User Setup (Each User Does This)
+
+**Who does this:** Each individual developer/user
+**How often:** Once per user
+**Purpose:** Install and configure the MCP server for your personal Claude Code installation
+
+#### 1. Build the Server
 
 ```bash
 cd <path to this repo clone>
@@ -57,9 +74,9 @@ npm install
 npm run build
 ```
 
-### 3. Configure Claude Code
+#### 2. Configure Claude Code
 
-Add to your `~/.claude.json` (using the credentials from step 1):
+Add to your `~/.claude.json` (using the credentials provided by your platform admin):
 
 ```json
 {
@@ -72,8 +89,8 @@ Add to your `~/.claude.json` (using the credentials from step 1):
       ],
       "env": {
         "BITBUCKET_WORKSPACE": "your-workspace-name",
-        "BITBUCKET_OAUTH_CLIENT_ID": "your-client-key-from-step-1",
-        "BITBUCKET_OAUTH_CLIENT_SECRET": "your-client-secret-from-step-1"
+        "BITBUCKET_OAUTH_CLIENT_ID": "your-client-key-from-admin",
+        "BITBUCKET_OAUTH_CLIENT_SECRET": "your-client-secret-from-admin"
       }
     }
   }
@@ -83,16 +100,18 @@ Add to your `~/.claude.json` (using the credentials from step 1):
 **Replace:**
 - `/path/to/bitbucket-mcp-server/build/index.js` - Full path to where you cloned this repo
 - `your-workspace-name` - Your Bitbucket workspace slug (e.g., `mycompany`, not the display name)
-- `your-client-key-from-step-1` - The **Key** value from the OAuth consumer you created
-- `your-client-secret-from-step-1` - The **Secret** value from the OAuth consumer
+- `your-client-key-from-admin` - The **Key** value provided by your admin
+- `your-client-secret-from-admin` - The **Secret** value provided by your admin
 
-### 4. Start Claude Code
+#### 3. Authorize Your Personal Access
 
 When you first use Bitbucket tools, the server will automatically:
 
 - Open your browser to Bitbucket authorization page
-- Ask you to authorize the app
-- Save your personal tokens to `~/.bitbucket-mcp-tokens.json`
+- Ask you to authorize the app **with your personal Bitbucket account**
+- Save **your personal tokens** to `~/.bitbucket-mcp-tokens.json`
+
+**Important:** Even though all users share the same OAuth app credentials, each user authorizes with their own Bitbucket account and gets their own isolated tokens. Actions are performed as the individual user.
 
 Done! Now you can ask Claude:
 
