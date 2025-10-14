@@ -2,12 +2,34 @@
  * TypeScript interfaces for Bitbucket API responses
  */
 
+export interface BitbucketProject {
+  key: string;
+  name: string;
+  description?: string;
+  is_private: boolean;
+  created_on: string;
+  updated_on: string;
+  owner?: {
+    display_name: string;
+    username: string;
+    uuid: string;
+  };
+  links?: {
+    html?: { href: string };
+    avatar?: { href: string };
+  };
+}
+
 export interface BitbucketRepository {
   name: string;
   full_name: string;
   uuid: string;
   is_private: boolean;
   description?: string;
+  project?: {
+    key: string;
+    name: string;
+  };
 }
 
 export interface BitbucketBranch {

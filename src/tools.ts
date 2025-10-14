@@ -408,4 +408,95 @@ export const TOOL_SCHEMAS = [
       required: ['repository'],
     },
   },
+  {
+    name: 'create_project',
+    description: 'Create a new project in the workspace',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        key: {
+          type: 'string',
+          description: 'Project key (must be unique, uppercase, max 10 characters, e.g., "PROJ")',
+        },
+        name: {
+          type: 'string',
+          description: 'Project name',
+        },
+        description: {
+          type: 'string',
+          description: 'Project description (optional)',
+        },
+        is_private: {
+          type: 'boolean',
+          description: 'Whether the project is private (default: true)',
+        },
+      },
+      required: ['key', 'name'],
+    },
+  },
+  {
+    name: 'update_project',
+    description: 'Update an existing project in the workspace',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        key: {
+          type: 'string',
+          description: 'Project key (e.g., "PROJ")',
+        },
+        name: {
+          type: 'string',
+          description: 'New project name (optional)',
+        },
+        description: {
+          type: 'string',
+          description: 'New project description (optional)',
+        },
+        is_private: {
+          type: 'boolean',
+          description: 'Whether the project is private (optional)',
+        },
+      },
+      required: ['key'],
+    },
+  },
+  {
+    name: 'create_repository',
+    description: 'Create a new repository in the workspace',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Repository name (lowercase with hyphens, e.g., "my-repo")',
+        },
+        project_key: {
+          type: 'string',
+          description: 'Project key to create repository in (optional)',
+        },
+        description: {
+          type: 'string',
+          description: 'Repository description (optional)',
+        },
+        is_private: {
+          type: 'boolean',
+          description: 'Whether the repository is private (default: true)',
+        },
+        has_wiki: {
+          type: 'boolean',
+          description: 'Enable wiki (default: false)',
+        },
+        has_issues: {
+          type: 'boolean',
+          description: 'Enable issue tracker (default: false)',
+        },
+        fork_policy: {
+          type: 'string',
+          enum: ['allow_forks', 'no_public_forks', 'no_forks'],
+          description: 'Fork policy (default: allow_forks)',
+        },
+      },
+      required: ['name'],
+    },
+  },
 ];

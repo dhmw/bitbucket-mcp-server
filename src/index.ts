@@ -257,6 +257,16 @@ class BitbucketServer {
           case 'clone_repository':
             return await this.repositoryHandlers.cloneRepository(request.params.arguments);
 
+          // Project operations
+          case 'create_project':
+            return await this.repositoryHandlers.createProject(request.params.arguments);
+
+          case 'update_project':
+            return await this.repositoryHandlers.updateProject(request.params.arguments);
+
+          case 'create_repository':
+            return await this.repositoryHandlers.createRepository(request.params.arguments);
+
           // Branch operations
           case 'create_branch':
             return await this.branchHandlers.createBranch(request.params.arguments);
@@ -306,8 +316,38 @@ class BitbucketServer {
 
         if (axios.isAxiosError(error)) {
           const axiosError = error as AxiosError;
-          const status = axiosError.response?.status;
-          const message = axiosError.response?.data || axiosError.message;
+
+          // Check if this is a network/connection error
+          if (!axiosError.response) {
+            if (axiosError.code === 'ECONNREFUSED') {
+              throw new McpError(
+                ErrorCode.InternalError,
+                `Cannot connect to Bitbucket API. Please check your internet connection.`
+              );
+            }
+            throw new McpError(
+              ErrorCode.InternalError,
+              `Network error: ${axiosError.message}. This might be an OAuth authorization issue - check that you've authorized the app.`
+            );
+          }
+
+          const status = axiosError.response.status;
+          const message = axiosError.response.data || axiosError.message;
+
+          // Provide specific error messages for common issues
+          if (status === 401) {
+            throw new McpError(
+              ErrorCode.InternalError,
+              `Unauthorized: OAuth token invalid or expired. Try deleting ~/.bitbucket-mcp-tokens.json and reauthorizing.`
+            );
+          }
+
+          if (status === 403) {
+            throw new McpError(
+              ErrorCode.InternalError,
+              `Forbidden: Insufficient OAuth permissions. Check that your OAuth consumer has the required scopes.`
+            );
+          }
 
           throw new McpError(
             ErrorCode.InternalError,

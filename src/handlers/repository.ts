@@ -4,11 +4,12 @@
 
 import { AxiosInstance, AxiosError } from 'axios';
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
-import { 
-  BitbucketRepository, 
-  BitbucketBranch, 
-  BitbucketTag, 
-  BitbucketCommit 
+import {
+  BitbucketProject,
+  BitbucketRepository,
+  BitbucketBranch,
+  BitbucketTag,
+  BitbucketCommit
 } from '../types.js';
 
 export class RepositoryHandlers {
@@ -291,6 +292,219 @@ export class RepositoryHandlers {
           throw new McpError(
             ErrorCode.InvalidRequest,
             `Repository '${repository}' not found in workspace '${this.workspace}'`
+          );
+        }
+      }
+      throw error;
+    }
+  }
+
+  async createProject(args: any) {
+    const { key, name, description, is_private = true } = args;
+
+    try {
+      const projectData: any = {
+        key: key.toUpperCase(),
+        name,
+        is_private,
+      };
+
+      if (description) {
+        projectData.description = description;
+      }
+
+      const response = await this.axiosInstance.post(
+        `/workspaces/${this.workspace}/projects`,
+        projectData
+      );
+
+      const project: BitbucketProject = response.data;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              message: 'Project created successfully',
+              project: {
+                key: project.key,
+                name: project.name,
+                description: project.description || 'No description',
+                is_private: project.is_private,
+                created_on: project.created_on,
+                owner: project.owner ? {
+                  display_name: project.owner.display_name,
+                  username: project.owner.username,
+                } : null,
+                links: project.links?.html?.href ? {
+                  html: project.links.html.href,
+                } : null,
+              },
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const status = error.response?.status;
+        const errorData = error.response?.data;
+
+        if (status === 400) {
+          throw new McpError(
+            ErrorCode.InvalidRequest,
+            `Invalid project data: ${JSON.stringify(errorData)}`
+          );
+        } else if (status === 409) {
+          throw new McpError(
+            ErrorCode.InvalidRequest,
+            `Project with key '${key}' already exists`
+          );
+        }
+      }
+      throw error;
+    }
+  }
+
+  async updateProject(args: any) {
+    const { key, name, description, is_private } = args;
+
+    try {
+      const projectData: any = {};
+
+      if (name !== undefined) {
+        projectData.name = name;
+      }
+      if (description !== undefined) {
+        projectData.description = description;
+      }
+      if (is_private !== undefined) {
+        projectData.is_private = is_private;
+      }
+
+      const response = await this.axiosInstance.put(
+        `/workspaces/${this.workspace}/projects/${key.toUpperCase()}`,
+        projectData
+      );
+
+      const project: BitbucketProject = response.data;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              message: 'Project updated successfully',
+              project: {
+                key: project.key,
+                name: project.name,
+                description: project.description || 'No description',
+                is_private: project.is_private,
+                updated_on: project.updated_on,
+                owner: project.owner ? {
+                  display_name: project.owner.display_name,
+                  username: project.owner.username,
+                } : null,
+                links: project.links?.html?.href ? {
+                  html: project.links.html.href,
+                } : null,
+              },
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const status = error.response?.status;
+
+        if (status === 404) {
+          throw new McpError(
+            ErrorCode.InvalidRequest,
+            `Project '${key}' not found in workspace '${this.workspace}'`
+          );
+        }
+      }
+      throw error;
+    }
+  }
+
+  async createRepository(args: any) {
+    const {
+      name,
+      project_key,
+      description,
+      is_private = true,
+      has_wiki = false,
+      has_issues = false,
+      fork_policy = 'allow_forks',
+    } = args;
+
+    try {
+      const repoData: any = {
+        scm: 'git',
+        is_private,
+        has_wiki,
+        has_issues,
+        fork_policy,
+      };
+
+      if (description) {
+        repoData.description = description;
+      }
+
+      if (project_key) {
+        repoData.project = {
+          key: project_key.toUpperCase(),
+        };
+      }
+
+      const response = await this.axiosInstance.post(
+        `/repositories/${this.workspace}/${name}`,
+        repoData
+      );
+
+      const repository: BitbucketRepository = response.data;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              message: 'Repository created successfully',
+              repository: {
+                name: repository.name,
+                full_name: repository.full_name,
+                is_private: repository.is_private,
+                description: repository.description || 'No description',
+                project: repository.project ? {
+                  key: repository.project.key,
+                  name: repository.project.name,
+                } : null,
+                clone_links: response.data.links?.clone,
+                html_url: response.data.links?.html?.href,
+              },
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const status = error.response?.status;
+        const errorData = error.response?.data;
+
+        if (status === 400) {
+          throw new McpError(
+            ErrorCode.InvalidRequest,
+            `Invalid repository data: ${JSON.stringify(errorData)}`
+          );
+        } else if (status === 409) {
+          throw new McpError(
+            ErrorCode.InvalidRequest,
+            `Repository '${name}' already exists in workspace '${this.workspace}'`
+          );
+        } else if (status === 404 && project_key) {
+          throw new McpError(
+            ErrorCode.InvalidRequest,
+            `Project '${project_key}' not found. Create the project first or omit project_key.`
           );
         }
       }
