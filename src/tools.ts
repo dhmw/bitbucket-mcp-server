@@ -383,9 +383,12 @@ export const TOOL_SCHEMAS = [
         reviewers: {
           type: 'array',
           items: {
-            type: 'string',
+            anyOf: [
+              { type: 'string' },
+              { type: 'object' }
+            ]
           },
-          description: 'Array of reviewer usernames (optional, replaces existing reviewers)',
+          description: 'Array of reviewers (optional, replaces existing reviewers). Each reviewer can be a username string (e.g., "john.doe"), account_id, uuid, or object with {uuid}, {account_id}, or {username} property.',
         },
       },
       required: ['repository', 'pull_request_id'],

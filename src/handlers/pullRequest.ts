@@ -337,7 +337,35 @@ export class PullRequestHandlers {
     }
 
     if (reviewers !== undefined) {
-      updateData.reviewers = reviewers.map((username: string) => ({ username }));
+      // Reviewers can be provided as:
+      // - username strings: "john.doe"
+      // - account_id strings: "1234567890abcdef12345678"
+      // - uuid strings: "{123456:abcdef01-2345-6789-abcd-ef0123456789}" or "123456:abcdef01-2345-6789-abcd-ef0123456789"
+      // - objects: { uuid: "..." } or { account_id: "..." } or { username: "..." }
+      updateData.reviewers = reviewers.map((reviewer: any) => {
+        // If already an object, return as-is
+        if (typeof reviewer === 'object' && reviewer !== null) {
+          return reviewer;
+        }
+
+        // If it's a string, determine what type it is
+        const reviewerStr = String(reviewer);
+
+        // Check if it's a UUID (contains colons or is wrapped in braces)
+        if (reviewerStr.includes(':') || reviewerStr.startsWith('{')) {
+          // Ensure UUID is wrapped in braces
+          const uuid = reviewerStr.startsWith('{') ? reviewerStr : `{${reviewerStr}}`;
+          return { uuid };
+        }
+
+        // Check if it's an account_id (32-character hex string)
+        if (/^[0-9a-f]{24,}$/i.test(reviewerStr)) {
+          return { account_id: reviewerStr };
+        }
+
+        // Otherwise treat it as a username
+        return { username: reviewerStr };
+      });
     }
 
     const response = await this.axiosInstance.put(

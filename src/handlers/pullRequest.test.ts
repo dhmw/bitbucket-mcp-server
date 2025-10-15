@@ -497,5 +497,211 @@ describe('PullRequestHandlers', () => {
       expect(updatePayload.destination).toBeUndefined();
       expect(updatePayload.reviewers).toBeUndefined();
     });
+
+    it('should handle reviewers provided as username strings', async () => {
+      const mockResponse = {
+        data: {
+          id: 8,
+          title: 'Test PR',
+          description: 'Test',
+          state: 'OPEN',
+          source: { branch: { name: 'feature/test' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test', username: 'test' },
+          links: { html: { href: 'https://bitbucket.org/test/8' } },
+          created_on: '2025-01-01T00:00:00Z',
+          updated_on: '2025-01-02T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.put).mockResolvedValueOnce(mockResponse);
+
+      await handlers.updatePullRequest({
+        repository: 'test-repo',
+        pull_request_id: 8,
+        reviewers: ['john.doe', 'jane.smith'],
+      });
+
+      const putCall = vi.mocked(mockAxios.put).mock.calls[0];
+      const updatePayload = putCall[1] as any;
+
+      expect(updatePayload.reviewers).toEqual([
+        { username: 'john.doe' },
+        { username: 'jane.smith' },
+      ]);
+    });
+
+    it('should handle reviewers provided as account_id strings', async () => {
+      const mockResponse = {
+        data: {
+          id: 9,
+          title: 'Test PR',
+          description: 'Test',
+          state: 'OPEN',
+          source: { branch: { name: 'feature/test' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test', username: 'test' },
+          links: { html: { href: 'https://bitbucket.org/test/9' } },
+          created_on: '2025-01-01T00:00:00Z',
+          updated_on: '2025-01-02T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.put).mockResolvedValueOnce(mockResponse);
+
+      await handlers.updatePullRequest({
+        repository: 'test-repo',
+        pull_request_id: 9,
+        reviewers: ['1234567890abcdef12345678', '9876543210fedcba98765432'],
+      });
+
+      const putCall = vi.mocked(mockAxios.put).mock.calls[0];
+      const updatePayload = putCall[1] as any;
+
+      expect(updatePayload.reviewers).toEqual([
+        { account_id: '1234567890abcdef12345678' },
+        { account_id: '9876543210fedcba98765432' },
+      ]);
+    });
+
+    it('should handle reviewers provided as uuid strings with braces', async () => {
+      const mockResponse = {
+        data: {
+          id: 10,
+          title: 'Test PR',
+          description: 'Test',
+          state: 'OPEN',
+          source: { branch: { name: 'feature/test' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test', username: 'test' },
+          links: { html: { href: 'https://bitbucket.org/test/10' } },
+          created_on: '2025-01-01T00:00:00Z',
+          updated_on: '2025-01-02T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.put).mockResolvedValueOnce(mockResponse);
+
+      await handlers.updatePullRequest({
+        repository: 'test-repo',
+        pull_request_id: 10,
+        reviewers: ['{123456:abcdef01-2345-6789-abcd-ef0123456789}'],
+      });
+
+      const putCall = vi.mocked(mockAxios.put).mock.calls[0];
+      const updatePayload = putCall[1] as any;
+
+      expect(updatePayload.reviewers).toEqual([
+        { uuid: '{123456:abcdef01-2345-6789-abcd-ef0123456789}' },
+      ]);
+    });
+
+    it('should handle reviewers provided as uuid strings without braces', async () => {
+      const mockResponse = {
+        data: {
+          id: 11,
+          title: 'Test PR',
+          description: 'Test',
+          state: 'OPEN',
+          source: { branch: { name: 'feature/test' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test', username: 'test' },
+          links: { html: { href: 'https://bitbucket.org/test/11' } },
+          created_on: '2025-01-01T00:00:00Z',
+          updated_on: '2025-01-02T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.put).mockResolvedValueOnce(mockResponse);
+
+      await handlers.updatePullRequest({
+        repository: 'test-repo',
+        pull_request_id: 11,
+        reviewers: ['123456:abcdef01-2345-6789-abcd-ef0123456789'],
+      });
+
+      const putCall = vi.mocked(mockAxios.put).mock.calls[0];
+      const updatePayload = putCall[1] as any;
+
+      expect(updatePayload.reviewers).toEqual([
+        { uuid: '{123456:abcdef01-2345-6789-abcd-ef0123456789}' },
+      ]);
+    });
+
+    it('should handle reviewers provided as mixed formats', async () => {
+      const mockResponse = {
+        data: {
+          id: 12,
+          title: 'Test PR',
+          description: 'Test',
+          state: 'OPEN',
+          source: { branch: { name: 'feature/test' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test', username: 'test' },
+          links: { html: { href: 'https://bitbucket.org/test/12' } },
+          created_on: '2025-01-01T00:00:00Z',
+          updated_on: '2025-01-02T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.put).mockResolvedValueOnce(mockResponse);
+
+      await handlers.updatePullRequest({
+        repository: 'test-repo',
+        pull_request_id: 12,
+        reviewers: [
+          'john.doe',
+          '1234567890abcdef12345678',
+          '123456:abcdef01-2345-6789-abcd-ef0123456789',
+        ],
+      });
+
+      const putCall = vi.mocked(mockAxios.put).mock.calls[0];
+      const updatePayload = putCall[1] as any;
+
+      expect(updatePayload.reviewers).toEqual([
+        { username: 'john.doe' },
+        { account_id: '1234567890abcdef12345678' },
+        { uuid: '{123456:abcdef01-2345-6789-abcd-ef0123456789}' },
+      ]);
+    });
+
+    it('should handle reviewers provided as objects', async () => {
+      const mockResponse = {
+        data: {
+          id: 13,
+          title: 'Test PR',
+          description: 'Test',
+          state: 'OPEN',
+          source: { branch: { name: 'feature/test' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test', username: 'test' },
+          links: { html: { href: 'https://bitbucket.org/test/13' } },
+          created_on: '2025-01-01T00:00:00Z',
+          updated_on: '2025-01-02T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.put).mockResolvedValueOnce(mockResponse);
+
+      await handlers.updatePullRequest({
+        repository: 'test-repo',
+        pull_request_id: 13,
+        reviewers: [
+          { username: 'john.doe' },
+          { account_id: '1234567890abcdef12345678' },
+          { uuid: '{123456:abcdef01-2345-6789-abcd-ef0123456789}' },
+        ],
+      });
+
+      const putCall = vi.mocked(mockAxios.put).mock.calls[0];
+      const updatePayload = putCall[1] as any;
+
+      expect(updatePayload.reviewers).toEqual([
+        { username: 'john.doe' },
+        { account_id: '1234567890abcdef12345678' },
+        { uuid: '{123456:abcdef01-2345-6789-abcd-ef0123456789}' },
+      ]);
+    });
   });
 });
