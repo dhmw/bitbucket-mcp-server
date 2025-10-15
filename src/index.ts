@@ -29,6 +29,7 @@ import { RepositoryHandlers } from './handlers/repository.js';
 import { BranchHandlers } from './handlers/branch.js';
 import { PullRequestHandlers } from './handlers/pullRequest.js';
 import { DeploymentHandlers } from './handlers/deployment.js';
+import { WorkspaceHandlers } from './handlers/workspace.js';
 import { runOAuthFlow, TokenData } from './oauth-flow.js';
 
 // Environment variables for authentication
@@ -182,6 +183,7 @@ class BitbucketServer {
   private branchHandlers: BranchHandlers;
   private pullRequestHandlers: PullRequestHandlers;
   private deploymentHandlers: DeploymentHandlers;
+  private workspaceHandlers: WorkspaceHandlers;
 
   constructor() {
     this.server = new Server(
@@ -217,6 +219,7 @@ class BitbucketServer {
     this.branchHandlers = new BranchHandlers(this.axiosInstance, BITBUCKET_WORKSPACE!);
     this.pullRequestHandlers = new PullRequestHandlers(this.axiosInstance, BITBUCKET_WORKSPACE!);
     this.deploymentHandlers = new DeploymentHandlers(this.axiosInstance, BITBUCKET_WORKSPACE!);
+    this.workspaceHandlers = new WorkspaceHandlers(this.axiosInstance, BITBUCKET_WORKSPACE!);
 
     this.setupToolHandlers();
 
@@ -244,6 +247,9 @@ class BitbucketServer {
 
           case 'list_projects':
             return await this.repositoryHandlers.listProjects(request.params.arguments);
+
+          case 'list_workspace_members':
+            return await this.workspaceHandlers.listWorkspaceMembers(request.params.arguments);
 
           case 'list_branches':
             return await this.repositoryHandlers.listBranches(request.params.arguments);

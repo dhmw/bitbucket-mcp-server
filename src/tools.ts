@@ -48,6 +48,26 @@ export const TOOL_SCHEMAS = [
     },
   },
   {
+    name: 'list_workspace_members',
+    description: 'List all members of the workspace with their usernames and display names. Useful for finding the correct username when adding reviewers to pull requests.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        page: {
+          type: 'number',
+          description: 'Page number for pagination (default: 1)',
+          minimum: 1,
+        },
+        pagelen: {
+          type: 'number',
+          description: 'Number of members per page (default: 100, max: 100)',
+          minimum: 1,
+          maximum: 100,
+        },
+      },
+    },
+  },
+  {
     name: 'list_branches',
     description: 'List branches in a repository',
     inputSchema: {

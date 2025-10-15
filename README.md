@@ -120,12 +120,19 @@ When you first use Bitbucket tools, the server will automatically:
 Done! Now you can ask Claude:
 
 - "List my Bitbucket repositories"
+- "Show me all workspace members"
+- "Who is Gareth in our workspace?" (finds username from display name)
 - "Create a new project called 'Engineering' with key ENG"
 - "Create a repository called 'my-app' in the ENG project"
 - "Show open pull requests in my-app"
 - "Create a pull request from feature-branch to main"
+- "Add Gareth to PR #42 as a reviewer" (uses member list to find correct username)
 
 ## Available Commands
+
+### Workspace
+
+- List all workspace members (with usernames and display names for finding reviewers)
 
 ### Projects
 
@@ -259,8 +266,26 @@ Create a branch called "feature/new-login" in my-new-service
 Show me the commit history for the main branch
 Create a pull request from feature/new-login to main
 Update the pull request description to include testing notes
-Update pull request reviewers to add jane.doe
+List workspace members to find Gareth's username
+Update pull request reviewers to add gareth.jones
 ```
+
+### Finding and Adding Reviewers
+
+The MCP server makes it easy to add reviewers by display name:
+
+```
+List workspace members
+Add Sarah to pull request #15 as a reviewer
+```
+
+Claude will:
+1. Call `list_workspace_members` to get all members
+2. Search for "Sarah" in display names
+3. Get the current PR reviewers with `get_pull_request`
+4. Update the PR with `update_pull_request` using Sarah's exact username
+
+This works even if you don't know the exact Bitbucket username.
 
 ## Using with Multiple Workspaces
 
