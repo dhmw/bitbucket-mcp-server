@@ -306,4 +306,67 @@ export class PullRequestHandlers {
       ],
     };
   }
+
+  async updatePullRequest(args: any) {
+    const {
+      repository,
+      pull_request_id,
+      title,
+      description,
+      destination_branch,
+      reviewers,
+    } = args;
+
+    // Build the update payload with only provided fields
+    const updateData: any = {};
+
+    if (title !== undefined) {
+      updateData.title = title;
+    }
+
+    if (description !== undefined) {
+      updateData.description = description;
+    }
+
+    if (destination_branch !== undefined) {
+      updateData.destination = {
+        branch: {
+          name: destination_branch,
+        },
+      };
+    }
+
+    if (reviewers !== undefined) {
+      updateData.reviewers = reviewers.map((username: string) => ({ username }));
+    }
+
+    const response = await this.axiosInstance.put(
+      `/repositories/${this.workspace}/${repository}/pullrequests/${pull_request_id}`,
+      updateData
+    );
+
+    const pullRequest: BitbucketPullRequest = response.data;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            message: 'Pull request updated successfully',
+            pull_request: {
+              id: pullRequest.id,
+              title: pullRequest.title,
+              description: pullRequest.description,
+              state: pullRequest.state,
+              source_branch: pullRequest.source.branch.name,
+              destination_branch: pullRequest.destination.branch.name,
+              author: pullRequest.author.display_name,
+              url: pullRequest.links.html.href,
+              updated_on: pullRequest.updated_on,
+            },
+          }, null, 2),
+        },
+      ],
+    };
+  }
 }

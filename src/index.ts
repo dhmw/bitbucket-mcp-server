@@ -296,6 +296,9 @@ class BitbucketServer {
           case 'add_pull_request_comment':
             return await this.pullRequestHandlers.addPullRequestComment(request.params.arguments);
 
+          case 'update_pull_request':
+            return await this.pullRequestHandlers.updatePullRequest(request.params.arguments);
+
           // Deployment operations
           case 'list_deployments':
             return await this.deploymentHandlers.listDeployments(request.params.arguments);

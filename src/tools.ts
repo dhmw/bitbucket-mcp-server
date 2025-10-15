@@ -335,6 +335,43 @@ export const TOOL_SCHEMAS = [
     },
   },
   {
+    name: 'update_pull_request',
+    description: 'Update an existing pull request',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repository: {
+          type: 'string',
+          description: 'Repository name (e.g., "my-repo")',
+        },
+        pull_request_id: {
+          type: 'number',
+          description: 'Pull request ID',
+        },
+        title: {
+          type: 'string',
+          description: 'New pull request title (optional)',
+        },
+        description: {
+          type: 'string',
+          description: 'New pull request description (optional)',
+        },
+        destination_branch: {
+          type: 'string',
+          description: 'New destination branch name (optional)',
+        },
+        reviewers: {
+          type: 'array',
+          items: {
+            type: 'string',
+          },
+          description: 'Array of reviewer usernames (optional, replaces existing reviewers)',
+        },
+      },
+      required: ['repository', 'pull_request_id'],
+    },
+  },
+  {
     name: 'list_deployments',
     description: 'List deployments for a repository',
     inputSchema: {

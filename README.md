@@ -146,6 +146,7 @@ Done! Now you can ask Claude:
 ### Pull Requests
 
 - Create a pull request
+- Update pull request (title, description, destination branch, reviewers)
 - List pull requests (by state)
 - Get PR details
 - Get PR comments
@@ -257,6 +258,8 @@ List all repositories in the WEB project
 Create a branch called "feature/new-login" in my-new-service
 Show me the commit history for the main branch
 Create a pull request from feature/new-login to main
+Update the pull request description to include testing notes
+Update pull request reviewers to add jane.doe
 ```
 
 ## Using with Multiple Workspaces
