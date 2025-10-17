@@ -17,6 +17,8 @@ describe('PullRequestHandlers', () => {
   });
 
   describe('createPullRequest', () => {
+    // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-pullrequests/#api-repositories-workspace-repo-slug-pullrequests-post
+    // Reviewers use UUID format: { uuid: "{user-uuid}" } or { username: "username" } or { account_id: "account-id" }
     it('should create a pull request', async () => {
       const mockResponse = {
         data: {
@@ -113,6 +115,8 @@ describe('PullRequestHandlers', () => {
   });
 
   describe('listPullRequests', () => {
+    // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-pullrequests/#api-repositories-workspace-repo-slug-pullrequests-get
+    // State parameter values: OPEN, MERGED, DECLINED
     it('should list pull requests with default state OPEN', async () => {
       const mockResponse = {
         data: {
@@ -187,6 +191,8 @@ describe('PullRequestHandlers', () => {
   });
 
   describe('updatePullRequest', () => {
+    // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-pullrequests/#api-repositories-workspace-repo-slug-pullrequests-pull-request-id-put
+    // Reviewers support multiple formats: username string, account_id, uuid (with or without braces), or objects with these properties
     it('should update all fields of a pull request', async () => {
       const mockResponse = {
         data: {

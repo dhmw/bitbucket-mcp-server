@@ -16,6 +16,9 @@ describe('BranchHandlers', () => {
   });
 
   describe('createBranch', () => {
+    // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-refs/#api-repositories-workspace-repo-slug-refs-branches-post
+    // Requires: GET /repositories/{workspace}/{repo_slug}/refs/branches/{name} to get source branch hash
+    // Then: POST /repositories/{workspace}/{repo_slug}/refs/branches with { name, target: { hash } }
     it('should create a new branch from source branch', async () => {
       const sourceBranchResponse = {
         data: {
@@ -64,6 +67,7 @@ describe('BranchHandlers', () => {
       expect(data.branch.commit_hash).toBe('abc123def456');
     });
 
+    // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-refs/#api-repositories-workspace-repo-slug-refs-branches-post
     it('should default to main as source branch', async () => {
       const sourceBranchResponse = {
         data: {

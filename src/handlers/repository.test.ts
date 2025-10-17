@@ -18,6 +18,7 @@ describe('RepositoryHandlers', () => {
   });
 
   describe('listRepositories', () => {
+    // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-repositories/#api-repositories-workspace-get
     it('should list repositories', async () => {
       const mockResponse = {
         data: {
@@ -53,6 +54,8 @@ describe('RepositoryHandlers', () => {
       expect(data.pagination.total).toBe(2);
     });
 
+    // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-repositories/#api-repositories-workspace-get
+    // Query parameter 'q' is used for filtering (e.g., q=project.key="PROJ")
     it('should filter repositories by project', async () => {
       const mockResponse = {
         data: {
@@ -104,6 +107,7 @@ describe('RepositoryHandlers', () => {
   });
 
   describe('listProjects', () => {
+    // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-projects/#api-workspaces-workspace-projects-get
     it('should list all projects', async () => {
       const mockResponse = {
         data: {

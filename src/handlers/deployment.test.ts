@@ -15,6 +15,8 @@ describe('DeploymentHandlers', () => {
   });
 
   describe('listDeployments', () => {
+    // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-deployments/#api-repositories-workspace-repo-slug-deployments-get
+    // Also uses: GET /repositories/{workspace}/{repo_slug}/environments
     it('should list deployments', async () => {
       const environmentsResponse = {
         data: {
@@ -122,6 +124,7 @@ describe('DeploymentHandlers', () => {
       expect(data.repository).toBe('test-repo');
     });
 
+    // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-deployments/#api-repositories-workspace-repo-slug-deployments-get
     it('should filter deployments by environment', async () => {
       const environmentsResponse = {
         data: {
