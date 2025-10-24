@@ -19,7 +19,38 @@ export class PullRequestHandlers {
       source_branch,
       destination_branch = 'main',
       reviewers = [],
+      include_default_reviewers = true,
     } = args;
+
+    // Fetch default reviewers if requested
+    let allReviewers = [...reviewers];
+
+    if (include_default_reviewers) {
+      try {
+        const defaultReviewersResponse = await this.axiosInstance.get(
+          `/repositories/${this.workspace}/${repository}/effective-default-reviewers`
+        );
+
+        const defaultReviewers = defaultReviewersResponse.data.values || [];
+
+        // Extract usernames from default reviewers
+        const defaultReviewerUsernames = defaultReviewers
+          .map((reviewer: any) => reviewer.user?.username)
+          .filter((username: string | undefined) => username !== undefined);
+
+        // Merge with provided reviewers, avoiding duplicates
+        const providedUsernames = new Set(reviewers);
+        const uniqueDefaultReviewers = defaultReviewerUsernames.filter(
+          (username: string) => !providedUsernames.has(username)
+        );
+
+        allReviewers = [...reviewers, ...uniqueDefaultReviewers];
+      } catch (error) {
+        // If fetching default reviewers fails, just use the provided reviewers
+        // Log the error but don't fail the PR creation
+        console.error('Warning: Failed to fetch default reviewers:', error);
+      }
+    }
 
     const pullRequestData = {
       title,
@@ -34,7 +65,7 @@ export class PullRequestHandlers {
           name: destination_branch,
         },
       },
-      reviewers: reviewers.map((username: string) => ({ username })),
+      reviewers: allReviewers.map((username: string) => ({ username })),
     };
 
     const response = await this.axiosInstance.post(
@@ -60,6 +91,7 @@ export class PullRequestHandlers {
               author: pullRequest.author.display_name,
               url: pullRequest.links.html.href,
               created_on: pullRequest.created_on,
+              reviewers_added: allReviewers.length,
             },
           }, null, 2),
         },

@@ -152,13 +152,16 @@ Done! Now you can ask Claude:
 
 ### Pull Requests
 
-- Create a pull request
+- Create a pull request (with automatic default reviewers)
+- Get default reviewers for a repository
 - Update pull request (title, description, destination branch, reviewers)
 - List pull requests (by state)
 - Get PR details
 - Get PR comments
 - Add comments to PRs
 - Approve/decline/merge PRs
+
+**Note on Default Reviewers**: When creating pull requests, the server automatically fetches and includes default reviewers configured in your repository or project settings. This behavior can be disabled by setting `include_default_reviewers: false`.
 
 ### Deployments
 

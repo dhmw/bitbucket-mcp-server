@@ -139,4 +139,67 @@ describe('RepositoryHandlers', () => {
       expect(data.projects[0].key).toBe('PROJ1');
     });
   });
+
+  describe('getDefaultReviewers', () => {
+    // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-pullrequests/#api-repositories-workspace-repo-slug-effective-default-reviewers-get
+    it('should get default reviewers for a repository', async () => {
+      const mockResponse = {
+        data: {
+          values: [
+            {
+              user: {
+                username: 'reviewer1',
+                display_name: 'Reviewer One',
+                account_id: '123456',
+                uuid: '{abcd-1234}',
+              },
+              reviewer_type: 'repository',
+            },
+            {
+              user: {
+                username: 'reviewer2',
+                display_name: 'Reviewer Two',
+                account_id: '789012',
+                uuid: '{efgh-5678}',
+              },
+              reviewer_type: 'project',
+            },
+          ],
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockResponse);
+
+      const result = await handlers.getDefaultReviewers({ repository: 'test-repo' });
+
+      expect(mockAxios.get).toHaveBeenCalledWith(
+        `/repositories/${workspace}/test-repo/effective-default-reviewers`
+      );
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.repository).toBe('test-repo');
+      expect(data.default_reviewers).toHaveLength(2);
+      expect(data.default_reviewers[0].username).toBe('reviewer1');
+      expect(data.default_reviewers[0].reviewer_type).toBe('repository');
+      expect(data.default_reviewers[1].username).toBe('reviewer2');
+      expect(data.default_reviewers[1].reviewer_type).toBe('project');
+      expect(data.total).toBe(2);
+    });
+
+    it('should handle empty default reviewers list', async () => {
+      const mockResponse = {
+        data: {
+          values: [],
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockResponse);
+
+      const result = await handlers.getDefaultReviewers({ repository: 'test-repo' });
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.default_reviewers).toHaveLength(0);
+      expect(data.total).toBe(0);
+    });
+  });
 });

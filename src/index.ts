@@ -260,6 +260,9 @@ class BitbucketServer {
           case 'get_branch_commits':
             return await this.repositoryHandlers.getBranchCommits(request.params.arguments);
 
+          case 'get_default_reviewers':
+            return await this.repositoryHandlers.getDefaultReviewers(request.params.arguments);
+
           case 'clone_repository':
             return await this.repositoryHandlers.cloneRepository(request.params.arguments);
 

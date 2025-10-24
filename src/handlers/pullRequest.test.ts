@@ -20,6 +20,12 @@ describe('PullRequestHandlers', () => {
     // API Reference: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-pullrequests/#api-repositories-workspace-repo-slug-pullrequests-post
     // Reviewers use UUID format: { uuid: "{user-uuid}" } or { username: "username" } or { account_id: "account-id" }
     it('should create a pull request', async () => {
+      const mockDefaultReviewersResponse = {
+        data: {
+          values: [],
+        },
+      };
+
       const mockResponse = {
         data: {
           id: 1,
@@ -42,6 +48,7 @@ describe('PullRequestHandlers', () => {
         },
       };
 
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockDefaultReviewersResponse);
       vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
 
       const result = await handlers.createPullRequest({
@@ -75,6 +82,17 @@ describe('PullRequestHandlers', () => {
     });
 
     it('should use default values for optional fields', async () => {
+      const mockDefaultReviewersResponse = {
+        data: {
+          values: [
+            {
+              user: { username: 'default-reviewer1' },
+              reviewer_type: 'repository',
+            },
+          ],
+        },
+      };
+
       const mockResponse = {
         data: {
           id: 2,
@@ -97,6 +115,7 @@ describe('PullRequestHandlers', () => {
         },
       };
 
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockDefaultReviewersResponse);
       vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
 
       await handlers.createPullRequest({
@@ -110,7 +129,222 @@ describe('PullRequestHandlers', () => {
 
       expect(body.description).toBe('');
       expect(body.destination.branch.name).toBe('main');
-      expect(body.reviewers).toEqual([]);
+      expect(body.reviewers).toEqual([{ username: 'default-reviewer1' }]);
+    });
+
+    it('should fetch and merge default reviewers', async () => {
+      const mockDefaultReviewersResponse = {
+        data: {
+          values: [
+            {
+              user: { username: 'default-reviewer1' },
+              reviewer_type: 'repository',
+            },
+            {
+              user: { username: 'default-reviewer2' },
+              reviewer_type: 'project',
+            },
+          ],
+        },
+      };
+
+      const mockResponse = {
+        data: {
+          id: 3,
+          title: 'Test with defaults',
+          description: '',
+          state: 'OPEN',
+          source: {
+            branch: { name: 'feature/test' },
+          },
+          destination: {
+            branch: { name: 'main' },
+          },
+          author: {
+            display_name: 'John Doe',
+          },
+          links: {
+            html: { href: 'https://bitbucket.org/test-workspace/test-repo/pull-requests/3' },
+          },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockDefaultReviewersResponse);
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      const result = await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'Test with defaults',
+        source_branch: 'feature/test',
+        reviewers: ['explicit-reviewer'],
+      });
+
+      expect(mockAxios.get).toHaveBeenCalledWith(
+        `/repositories/${workspace}/test-repo/effective-default-reviewers`
+      );
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([
+        { username: 'explicit-reviewer' },
+        { username: 'default-reviewer1' },
+        { username: 'default-reviewer2' },
+      ]);
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.pull_request.reviewers_added).toBe(3);
+    });
+
+    it('should avoid duplicate reviewers when merging defaults', async () => {
+      const mockDefaultReviewersResponse = {
+        data: {
+          values: [
+            {
+              user: { username: 'reviewer1' },
+              reviewer_type: 'repository',
+            },
+            {
+              user: { username: 'reviewer2' },
+              reviewer_type: 'project',
+            },
+          ],
+        },
+      };
+
+      const mockResponse = {
+        data: {
+          id: 4,
+          title: 'No duplicates',
+          description: '',
+          state: 'OPEN',
+          source: {
+            branch: { name: 'feature/test' },
+          },
+          destination: {
+            branch: { name: 'main' },
+          },
+          author: {
+            display_name: 'John Doe',
+          },
+          links: {
+            html: { href: 'https://bitbucket.org/test-workspace/test-repo/pull-requests/4' },
+          },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockDefaultReviewersResponse);
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'No duplicates',
+        source_branch: 'feature/test',
+        reviewers: ['reviewer1', 'reviewer3'],
+      });
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([
+        { username: 'reviewer1' },
+        { username: 'reviewer3' },
+        { username: 'reviewer2' },
+      ]);
+    });
+
+    it('should not fetch default reviewers when include_default_reviewers is false', async () => {
+      const mockResponse = {
+        data: {
+          id: 5,
+          title: 'No defaults',
+          description: '',
+          state: 'OPEN',
+          source: {
+            branch: { name: 'feature/test' },
+          },
+          destination: {
+            branch: { name: 'main' },
+          },
+          author: {
+            display_name: 'John Doe',
+          },
+          links: {
+            html: { href: 'https://bitbucket.org/test-workspace/test-repo/pull-requests/5' },
+          },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'No defaults',
+        source_branch: 'feature/test',
+        reviewers: ['reviewer1'],
+        include_default_reviewers: false,
+      });
+
+      expect(mockAxios.get).not.toHaveBeenCalled();
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([{ username: 'reviewer1' }]);
+    });
+
+    it('should handle default reviewers API failure gracefully', async () => {
+      const mockResponse = {
+        data: {
+          id: 6,
+          title: 'API failure handling',
+          description: '',
+          state: 'OPEN',
+          source: {
+            branch: { name: 'feature/test' },
+          },
+          destination: {
+            branch: { name: 'main' },
+          },
+          author: {
+            display_name: 'John Doe',
+          },
+          links: {
+            html: { href: 'https://bitbucket.org/test-workspace/test-repo/pull-requests/6' },
+          },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockRejectedValueOnce(new Error('API error'));
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const result = await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'API failure handling',
+        source_branch: 'feature/test',
+        reviewers: ['reviewer1'],
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Warning: Failed to fetch default reviewers:',
+        expect.any(Error)
+      );
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([{ username: 'reviewer1' }]);
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.message).toBe('Pull request created successfully');
+
+      consoleSpy.mockRestore();
     });
   });
 

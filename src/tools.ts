@@ -190,8 +190,26 @@ export const TOOL_SCHEMAS = [
           },
           description: 'Array of reviewer usernames',
         },
+        include_default_reviewers: {
+          type: 'boolean',
+          description: 'Whether to include default reviewers from repository/project settings (default: true)',
+        },
       },
       required: ['repository', 'title', 'source_branch'],
+    },
+  },
+  {
+    name: 'get_default_reviewers',
+    description: 'Get default reviewers for a repository (includes both repository-level and project-level default reviewers)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repository: {
+          type: 'string',
+          description: 'Repository name (e.g., "my-repo")',
+        },
+      },
+      required: ['repository'],
     },
   },
   {
