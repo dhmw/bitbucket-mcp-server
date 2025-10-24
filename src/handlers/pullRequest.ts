@@ -19,7 +19,38 @@ export class PullRequestHandlers {
       source_branch,
       destination_branch = 'main',
       reviewers = [],
+      include_default_reviewers = true,
     } = args;
+
+    // Fetch default reviewers if requested
+    let allReviewers = [...reviewers];
+
+    if (include_default_reviewers) {
+      try {
+        const defaultReviewersResponse = await this.axiosInstance.get(
+          `/repositories/${this.workspace}/${repository}/effective-default-reviewers`
+        );
+
+        const defaultReviewers = defaultReviewersResponse.data.values || [];
+
+        // Extract usernames from default reviewers
+        const defaultReviewerUsernames = defaultReviewers
+          .map((reviewer: any) => reviewer.user?.username)
+          .filter((username: string | undefined) => username !== undefined);
+
+        // Merge with provided reviewers, avoiding duplicates
+        const providedUsernames = new Set(reviewers);
+        const uniqueDefaultReviewers = defaultReviewerUsernames.filter(
+          (username: string) => !providedUsernames.has(username)
+        );
+
+        allReviewers = [...reviewers, ...uniqueDefaultReviewers];
+      } catch (error) {
+        // If fetching default reviewers fails, just use the provided reviewers
+        // Log the error but don't fail the PR creation
+        console.error('Warning: Failed to fetch default reviewers:', error);
+      }
+    }
 
     const pullRequestData = {
       title,
@@ -34,7 +65,7 @@ export class PullRequestHandlers {
           name: destination_branch,
         },
       },
-      reviewers: reviewers.map((username: string) => ({ username })),
+      reviewers: allReviewers.map((username: string) => ({ username })),
     };
 
     const response = await this.axiosInstance.post(
@@ -60,6 +91,7 @@ export class PullRequestHandlers {
               author: pullRequest.author.display_name,
               url: pullRequest.links.html.href,
               created_on: pullRequest.created_on,
+              reviewers_added: allReviewers.length,
             },
           }, null, 2),
         },
@@ -300,6 +332,97 @@ export class PullRequestHandlers {
               content: response.data.content.raw,
               author: response.data.user.display_name,
               created_on: response.data.created_on,
+            },
+          }, null, 2),
+        },
+      ],
+    };
+  }
+
+  async updatePullRequest(args: any) {
+    const {
+      repository,
+      pull_request_id,
+      title,
+      description,
+      destination_branch,
+      reviewers,
+    } = args;
+
+    // Build the update payload with only provided fields
+    const updateData: any = {};
+
+    if (title !== undefined) {
+      updateData.title = title;
+    }
+
+    if (description !== undefined) {
+      updateData.description = description;
+    }
+
+    if (destination_branch !== undefined) {
+      updateData.destination = {
+        branch: {
+          name: destination_branch,
+        },
+      };
+    }
+
+    if (reviewers !== undefined) {
+      // Reviewers can be provided as:
+      // - username strings: "john.doe"
+      // - account_id strings: "1234567890abcdef12345678"
+      // - uuid strings: "{123456:abcdef01-2345-6789-abcd-ef0123456789}" or "123456:abcdef01-2345-6789-abcd-ef0123456789"
+      // - objects: { uuid: "..." } or { account_id: "..." } or { username: "..." }
+      updateData.reviewers = reviewers.map((reviewer: any) => {
+        // If already an object, return as-is
+        if (typeof reviewer === 'object' && reviewer !== null) {
+          return reviewer;
+        }
+
+        // If it's a string, determine what type it is
+        const reviewerStr = String(reviewer);
+
+        // Check if it's a UUID (contains colons or is wrapped in braces)
+        if (reviewerStr.includes(':') || reviewerStr.startsWith('{')) {
+          // Ensure UUID is wrapped in braces
+          const uuid = reviewerStr.startsWith('{') ? reviewerStr : `{${reviewerStr}}`;
+          return { uuid };
+        }
+
+        // Check if it's an account_id (32-character hex string)
+        if (/^[0-9a-f]{24,}$/i.test(reviewerStr)) {
+          return { account_id: reviewerStr };
+        }
+
+        // Otherwise treat it as a username
+        return { username: reviewerStr };
+      });
+    }
+
+    const response = await this.axiosInstance.put(
+      `/repositories/${this.workspace}/${repository}/pullrequests/${pull_request_id}`,
+      updateData
+    );
+
+    const pullRequest: BitbucketPullRequest = response.data;
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            message: 'Pull request updated successfully',
+            pull_request: {
+              id: pullRequest.id,
+              title: pullRequest.title,
+              description: pullRequest.description,
+              state: pullRequest.state,
+              source_branch: pullRequest.source.branch.name,
+              destination_branch: pullRequest.destination.branch.name,
+              author: pullRequest.author.display_name,
+              url: pullRequest.links.html.href,
+              updated_on: pullRequest.updated_on,
             },
           }, null, 2),
         },

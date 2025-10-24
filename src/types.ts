@@ -183,3 +183,28 @@ export interface BitbucketDeployment {
     created_on: string;
   };
 }
+
+export interface BitbucketWorkspaceMember {
+  type: string;
+  user: {
+    display_name: string;
+    uuid: string;
+    username: string;
+    account_id: string;
+    nickname: string;
+    type: string;
+    links?: {
+      avatar?: { href: string };
+      html?: { href: string };
+    };
+  };
+  workspace: {
+    type: string;
+    uuid: string;
+    name: string;
+    slug: string;
+  };
+  links?: {
+    self?: { href: string };
+  };
+}

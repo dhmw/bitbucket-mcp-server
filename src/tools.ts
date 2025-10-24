@@ -48,6 +48,26 @@ export const TOOL_SCHEMAS = [
     },
   },
   {
+    name: 'list_workspace_members',
+    description: 'List all members of the workspace with their usernames and display names. Useful for finding the correct username when adding reviewers to pull requests.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        page: {
+          type: 'number',
+          description: 'Page number for pagination (default: 1)',
+          minimum: 1,
+        },
+        pagelen: {
+          type: 'number',
+          description: 'Number of members per page (default: 100, max: 100)',
+          minimum: 1,
+          maximum: 100,
+        },
+      },
+    },
+  },
+  {
     name: 'list_branches',
     description: 'List branches in a repository',
     inputSchema: {
@@ -170,8 +190,26 @@ export const TOOL_SCHEMAS = [
           },
           description: 'Array of reviewer usernames',
         },
+        include_default_reviewers: {
+          type: 'boolean',
+          description: 'Whether to include default reviewers from repository/project settings (default: true)',
+        },
       },
       required: ['repository', 'title', 'source_branch'],
+    },
+  },
+  {
+    name: 'get_default_reviewers',
+    description: 'Get default reviewers for a repository (includes both repository-level and project-level default reviewers)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repository: {
+          type: 'string',
+          description: 'Repository name (e.g., "my-repo")',
+        },
+      },
+      required: ['repository'],
     },
   },
   {
@@ -332,6 +370,46 @@ export const TOOL_SCHEMAS = [
         },
       },
       required: ['repository', 'pull_request_id', 'content'],
+    },
+  },
+  {
+    name: 'update_pull_request',
+    description: 'Update an existing pull request',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repository: {
+          type: 'string',
+          description: 'Repository name (e.g., "my-repo")',
+        },
+        pull_request_id: {
+          type: 'number',
+          description: 'Pull request ID',
+        },
+        title: {
+          type: 'string',
+          description: 'New pull request title (optional)',
+        },
+        description: {
+          type: 'string',
+          description: 'New pull request description (optional)',
+        },
+        destination_branch: {
+          type: 'string',
+          description: 'New destination branch name (optional)',
+        },
+        reviewers: {
+          type: 'array',
+          items: {
+            anyOf: [
+              { type: 'string' },
+              { type: 'object' }
+            ]
+          },
+          description: 'Array of reviewers (optional, replaces existing reviewers). Each reviewer can be a username string (e.g., "john.doe"), account_id, uuid, or object with {uuid}, {account_id}, or {username} property.',
+        },
+      },
+      required: ['repository', 'pull_request_id'],
     },
   },
   {

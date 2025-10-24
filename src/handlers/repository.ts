@@ -511,4 +511,47 @@ export class RepositoryHandlers {
       throw error;
     }
   }
+
+  async getDefaultReviewers(args: any) {
+    const { repository } = args;
+
+    try {
+      const response = await this.axiosInstance.get(
+        `/repositories/${this.workspace}/${repository}/effective-default-reviewers`
+      );
+
+      const reviewers = response.data.values || [];
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              repository,
+              default_reviewers: reviewers.map((reviewer: any) => ({
+                username: reviewer.user?.username,
+                display_name: reviewer.user?.display_name,
+                account_id: reviewer.user?.account_id,
+                uuid: reviewer.user?.uuid,
+                reviewer_type: reviewer.reviewer_type,
+              })),
+              total: reviewers.length,
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const status = error.response?.status;
+
+        if (status === 404) {
+          throw new McpError(
+            ErrorCode.InvalidRequest,
+            `Repository '${repository}' not found in workspace '${this.workspace}'`
+          );
+        }
+      }
+      throw error;
+    }
+  }
 }

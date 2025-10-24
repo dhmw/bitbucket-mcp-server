@@ -13,6 +13,7 @@ Model Context Protocol (MCP) server for Bitbucket Cloud with per-user OAuth2 aut
 #### 1. Create a Bitbucket OAuth Consumer
 
 1. **Navigate to OAuth Settings**
+
    - Go to [Bitbucket.org](https://bitbucket.org)
    - Click on your workspace avatar (bottom left)
    - Select the workspace you want to use
@@ -21,6 +22,7 @@ Model Context Protocol (MCP) server for Bitbucket Cloud with per-user OAuth2 aut
    - Or use direct URL: `https://bitbucket.org/<your-workspace>/workspace/settings/api`
 
 2. **Create New Consumer**
+
    - Click **Add consumer**
    - Fill in the details:
      - **Name**: `Bitbucket MCP Server` (or any name you prefer)
@@ -29,11 +31,13 @@ Model Context Protocol (MCP) server for Bitbucket Cloud with per-user OAuth2 aut
      - **URL**: Leave empty or add your company URL (optional)
 
 3. **Configure Consumer Settings**
+
    - **IMPORTANT**: **Do NOT check** "This is a private consumer"
    - This must be a public OAuth consumer for the authorization flow to work
 
 4. **Set Permissions**
    Select the following scopes (checkboxes):
+
    - **Account**
      - ☑ Read
    - **Workspace membership**
@@ -49,6 +53,7 @@ Model Context Protocol (MCP) server for Bitbucket Cloud with per-user OAuth2 aut
      - ☑ Read
 
 5. **Save and Copy Credentials**
+
    - Click **Save**
    - You'll see your **Key** (Client ID) and **Secret** (Client Secret)
    - **IMPORTANT**: Copy both values immediately - you won't be able to see the secret again!
@@ -84,9 +89,7 @@ Add to your `~/.claude.json` (using the credentials provided by your platform ad
     "bitbucket": {
       "type": "stdio",
       "command": "node",
-      "args": [
-        "/path/to/bitbucket-mcp-server/build/index.js"
-      ],
+      "args": ["/path/to/bitbucket-mcp-server/build/index.js"],
       "env": {
         "BITBUCKET_WORKSPACE": "your-workspace-name",
         "BITBUCKET_OAUTH_CLIENT_ID": "your-client-key-from-admin",
@@ -98,6 +101,7 @@ Add to your `~/.claude.json` (using the credentials provided by your platform ad
 ```
 
 **Replace:**
+
 - `/path/to/bitbucket-mcp-server/build/index.js` - Full path to where you cloned this repo
 - `your-workspace-name` - Your Bitbucket workspace slug (e.g., `mycompany`, not the display name)
 - `your-client-key-from-admin` - The **Key** value provided by your admin
@@ -116,12 +120,19 @@ When you first use Bitbucket tools, the server will automatically:
 Done! Now you can ask Claude:
 
 - "List my Bitbucket repositories"
+- "Show me all workspace members"
+- "Who is Gareth in our workspace?" (finds username from display name)
 - "Create a new project called 'Engineering' with key ENG"
 - "Create a repository called 'my-app' in the ENG project"
 - "Show open pull requests in my-app"
 - "Create a pull request from feature-branch to main"
+- "Add Gareth to PR #42 as a reviewer" (uses member list to find correct username)
 
 ## Available Commands
+
+### Workspace
+
+- List all workspace members (with usernames and display names for finding reviewers)
 
 ### Projects
 
@@ -141,12 +152,16 @@ Done! Now you can ask Claude:
 
 ### Pull Requests
 
-- Create a pull request
+- Create a pull request (with automatic default reviewers)
+- Get default reviewers for a repository
+- Update pull request (title, description, destination branch, reviewers)
 - List pull requests (by state)
 - Get PR details
 - Get PR comments
 - Add comments to PRs
 - Approve/decline/merge PRs
+
+**Note on Default Reviewers**: When creating pull requests, the server automatically fetches and includes default reviewers configured in your repository or project settings. This behavior can be disabled by setting `include_default_reviewers: false`.
 
 ### Deployments
 
@@ -167,6 +182,7 @@ Done! Now you can ask Claude:
 **Problem**: "Invalid OAuth credentials" or "Unauthorized" errors
 
 **Solutions**:
+
 - Verify the OAuth consumer is **NOT** marked as "This is a private consumer"
 - Double-check that you copied the **Key** (not the name) as your Client ID
 - Confirm the **Secret** was copied correctly (you can regenerate it if needed)
@@ -178,12 +194,14 @@ Done! Now you can ask Claude:
 This error typically means the OAuth authorization hasn't been completed yet.
 
 **First time setup**:
+
 1. The MCP server should automatically open your browser to authorize
 2. If the browser doesn't open, check the Claude Code logs for a URL like `http://localhost:8234`
 3. Open that URL in your browser and complete the authorization
 4. After authorizing, retry your command in Claude Code
 
 **If you've already authorized**:
+
 - Check that `~/.bitbucket-mcp-tokens.json` exists and is readable
 - Try deleting `~/.bitbucket-mcp-tokens.json` and restart Claude Code to re-authorize
 - Verify your `BITBUCKET_WORKSPACE` environment variable matches your workspace slug (not display name)
@@ -191,6 +209,7 @@ This error typically means the OAuth authorization hasn't been completed yet.
 ### Authorization not working
 
 The server will automatically start the OAuth flow when needed. If the browser doesn't open automatically:
+
 - Look for the authorization URL in the Claude Code MCP logs
 - Copy and paste the URL into your browser manually
 - The URL should start with `http://localhost:8234`
@@ -202,6 +221,7 @@ The server will automatically re-authorize if token refresh fails. Just approve 
 ### Permission denied errors
 
 If you see errors like "Insufficient privileges" or "Permission denied":
+
 - Go back to your OAuth consumer settings in Bitbucket
 - Verify all required permissions are enabled (especially Projects:Write and Repositories:Admin)
 - You may need to re-authorize (delete `~/.bitbucket-mcp-tokens.json` and restart Claude Code)
@@ -227,6 +247,7 @@ This is useful for testing your OAuth setup without involving Claude Code.
 ## Example Use Cases
 
 ### Project Management
+
 ```
 Create a new project with key "WEB" called "Web Applications"
 List all projects in the workspace
@@ -234,6 +255,7 @@ Update the WEB project description
 ```
 
 ### Repository Creation
+
 ```
 Create a repository called "my-new-service" in the WEB project
 Create a private repository with issues and wiki enabled
@@ -241,11 +263,32 @@ List all repositories in the WEB project
 ```
 
 ### Development Workflow
+
 ```
 Create a branch called "feature/new-login" in my-new-service
 Show me the commit history for the main branch
 Create a pull request from feature/new-login to main
+Update the pull request description to include testing notes
+List workspace members to find Gareth's username
+Update pull request reviewers to add gareth.jones
 ```
+
+### Finding and Adding Reviewers
+
+The MCP server makes it easy to add reviewers by display name:
+
+```
+List workspace members
+Add Sarah to pull request #15 as a reviewer
+```
+
+Claude will:
+1. Call `list_workspace_members` to get all members
+2. Search for "Sarah" in display names
+3. Get the current PR reviewers with `get_pull_request`
+4. Update the PR with `update_pull_request` using Sarah's exact username
+
+This works even if you don't know the exact Bitbucket username.
 
 ## Using with Multiple Workspaces
 
@@ -292,16 +335,16 @@ BITBUCKET_OAUTH_CLIENT_ID=your-id BITBUCKET_OAUTH_CLIENT_SECRET=your-secret BITB
 
 This table shows which OAuth permissions are required for each feature:
 
-| Feature | Required Permissions |
-|---------|---------------------|
-| List repositories | Account:Read, Repositories:Read |
-| Create repositories | Repositories:Admin |
-| List projects | Account:Read, Workspace:Read |
-| Create/update projects | Projects:Write |
-| List/create branches | Repositories:Write |
-| Create pull requests | Pull requests:Write |
-| Approve/merge PRs | Pull requests:Write |
-| View deployments | Pipelines:Read (optional) |
+| Feature                | Required Permissions            |
+| ---------------------- | ------------------------------- |
+| List repositories      | Account:Read, Repositories:Read |
+| Create repositories    | Repositories:Admin              |
+| List projects          | Account:Read, Workspace:Read    |
+| Create/update projects | Projects:Write                  |
+| List/create branches   | Repositories:Write              |
+| Create pull requests   | Pull requests:Write             |
+| Approve/merge PRs      | Pull requests:Write             |
+| View deployments       | Pipelines:Read (optional)       |
 
 **Recommended setup**: Enable all permissions listed in Step 1 to ensure full functionality.
 
