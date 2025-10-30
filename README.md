@@ -163,6 +163,16 @@ Done! Now you can ask Claude:
 
 **Note on Default Reviewers**: When creating pull requests, the server automatically fetches and includes default reviewers configured in your repository or project settings. This behavior can be disabled by setting `include_default_reviewers: false`.
 
+**Reviewer Formats**: When specifying reviewers (in both `create_pull_request` and `update_pull_request`), you can use any of these formats:
+- Username string: `"john.doe"`
+- Account ID (long hex string): `"60741e71115da6006f113b86"`
+- UUID with braces: `"{e4d72575-e965-4507-97bd-0bb30ec07406}"`
+- UUID with colon: `"712020:055ffe4a-4a30-4caf-8917-46eaa43d2f80"` (braces added automatically)
+- Object format: `{ username: "john.doe" }`, `{ account_id: "..." }`, or `{ uuid: "{...}" }`
+- Mixed formats in the same array are supported
+
+The tool automatically detects the format and converts it to what the Bitbucket API expects.
+
 ### Deployments
 
 - List deployments (filter by environment)

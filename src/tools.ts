@@ -186,9 +186,12 @@ export const TOOL_SCHEMAS = [
         reviewers: {
           type: 'array',
           items: {
-            type: 'string',
+            anyOf: [
+              { type: 'string' },
+              { type: 'object' }
+            ]
           },
-          description: 'Array of reviewer usernames',
+          description: 'Array of reviewers. Each reviewer can be a username string (e.g., "john.doe"), account_id, uuid, or object with {uuid}, {account_id}, or {username} property.',
         },
         include_default_reviewers: {
           type: 'boolean',

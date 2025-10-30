@@ -296,6 +296,205 @@ describe('PullRequestHandlers', () => {
       expect(body.reviewers).toEqual([{ username: 'reviewer1' }]);
     });
 
+    it('should convert reviewer username strings to objects', async () => {
+      const mockDefaultReviewersResponse = {
+        data: { values: [] },
+      };
+
+      const mockResponse = {
+        data: {
+          id: 100,
+          title: 'Test',
+          description: '',
+          state: 'OPEN',
+          source: { branch: { name: 'feature' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test User' },
+          links: { html: { href: 'https://test.com' } },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockDefaultReviewersResponse);
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'Test',
+        source_branch: 'feature',
+        reviewers: ['john.doe', 'jane.smith'],
+        include_default_reviewers: false,
+      });
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([
+        { username: 'john.doe' },
+        { username: 'jane.smith' },
+      ]);
+    });
+
+    it('should handle UUID format with braces', async () => {
+      const mockDefaultReviewersResponse = {
+        data: { values: [] },
+      };
+
+      const mockResponse = {
+        data: {
+          id: 101,
+          title: 'Test',
+          description: '',
+          state: 'OPEN',
+          source: { branch: { name: 'feature' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test User' },
+          links: { html: { href: 'https://test.com' } },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockDefaultReviewersResponse);
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'Test',
+        source_branch: 'feature',
+        reviewers: ['{e4d72575-e965-4507-97bd-0bb30ec07406}'],
+        include_default_reviewers: false,
+      });
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([
+        { uuid: '{e4d72575-e965-4507-97bd-0bb30ec07406}' },
+      ]);
+    });
+
+    it('should handle UUID format with colon (add braces)', async () => {
+      const mockDefaultReviewersResponse = {
+        data: { values: [] },
+      };
+
+      const mockResponse = {
+        data: {
+          id: 102,
+          title: 'Test',
+          description: '',
+          state: 'OPEN',
+          source: { branch: { name: 'feature' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test User' },
+          links: { html: { href: 'https://test.com' } },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockDefaultReviewersResponse);
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'Test',
+        source_branch: 'feature',
+        reviewers: ['712020:055ffe4a-4a30-4caf-8917-46eaa43d2f80'],
+        include_default_reviewers: false,
+      });
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([
+        { uuid: '{712020:055ffe4a-4a30-4caf-8917-46eaa43d2f80}' },
+      ]);
+    });
+
+    it('should handle account_id format (long hex string)', async () => {
+      const mockDefaultReviewersResponse = {
+        data: { values: [] },
+      };
+
+      const mockResponse = {
+        data: {
+          id: 103,
+          title: 'Test',
+          description: '',
+          state: 'OPEN',
+          source: { branch: { name: 'feature' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test User' },
+          links: { html: { href: 'https://test.com' } },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockDefaultReviewersResponse);
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'Test',
+        source_branch: 'feature',
+        reviewers: ['60741e71115da6006f113b86'],
+        include_default_reviewers: false,
+      });
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([
+        { account_id: '60741e71115da6006f113b86' },
+      ]);
+    });
+
+    it('should handle mixed reviewer formats', async () => {
+      const mockDefaultReviewersResponse = {
+        data: { values: [] },
+      };
+
+      const mockResponse = {
+        data: {
+          id: 104,
+          title: 'Test',
+          description: '',
+          state: 'OPEN',
+          source: { branch: { name: 'feature' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test User' },
+          links: { html: { href: 'https://test.com' } },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockDefaultReviewersResponse);
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'Test',
+        source_branch: 'feature',
+        reviewers: [
+          'john.doe',
+          '{e4d72575-e965-4507-97bd-0bb30ec07406}',
+          '60741e71115da6006f113b86',
+          { username: 'jane.smith' },
+        ],
+        include_default_reviewers: false,
+      });
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([
+        { username: 'john.doe' },
+        { uuid: '{e4d72575-e965-4507-97bd-0bb30ec07406}' },
+        { account_id: '60741e71115da6006f113b86' },
+        { username: 'jane.smith' },
+      ]);
+    });
+
     it('should handle default reviewers API failure gracefully', async () => {
       const mockResponse = {
         data: {
