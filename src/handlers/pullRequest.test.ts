@@ -545,6 +545,165 @@ describe('PullRequestHandlers', () => {
 
       consoleSpy.mockRestore();
     });
+
+    it('should resolve display names to usernames via workspace members API', async () => {
+      const mockMembersResponse = {
+        data: {
+          values: [
+            {
+              user: {
+                display_name: 'Alice Developer',
+                username: 'alice.dev',
+              },
+            },
+            {
+              user: {
+                display_name: 'Bob Reviewer',
+                username: 'bob.reviewer',
+              },
+            },
+          ],
+        },
+      };
+
+      const mockResponse = {
+        data: {
+          id: 105,
+          title: 'Test',
+          description: '',
+          state: 'OPEN',
+          source: { branch: { name: 'feature' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test User' },
+          links: { html: { href: 'https://test.com' } },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      // Mock for the two members API calls (one for each reviewer)
+      vi.mocked(mockAxios.get)
+        .mockResolvedValueOnce(mockMembersResponse)
+        .mockResolvedValueOnce(mockMembersResponse);
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'Test',
+        source_branch: 'feature',
+        reviewers: ['Alice Developer', 'Bob Reviewer'],
+        include_default_reviewers: false,
+      });
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([
+        { username: 'alice.dev' },
+        { username: 'bob.reviewer' },
+      ]);
+    });
+
+    it('should handle case-insensitive display name matching', async () => {
+      const mockMembersResponse = {
+        data: {
+          values: [
+            {
+              user: {
+                display_name: 'John Doe',
+                username: 'john.doe',
+              },
+            },
+          ],
+        },
+      };
+
+      const mockResponse = {
+        data: {
+          id: 106,
+          title: 'Test',
+          description: '',
+          state: 'OPEN',
+          source: { branch: { name: 'feature' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test User' },
+          links: { html: { href: 'https://test.com' } },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockMembersResponse);
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'Test',
+        source_branch: 'feature',
+        reviewers: ['john doe'], // lowercase
+        include_default_reviewers: false,
+      });
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([
+        { username: 'john.doe' },
+      ]);
+    });
+
+    it('should fall back to username when display name resolution fails', async () => {
+      const mockMembersResponse = {
+        data: {
+          values: [
+            {
+              user: {
+                display_name: 'John Doe',
+                username: 'john.doe',
+              },
+            },
+          ],
+        },
+      };
+
+      const mockResponse = {
+        data: {
+          id: 107,
+          title: 'Test',
+          description: '',
+          state: 'OPEN',
+          source: { branch: { name: 'feature' } },
+          destination: { branch: { name: 'main' } },
+          author: { display_name: 'Test User' },
+          links: { html: { href: 'https://test.com' } },
+          created_on: '2025-01-01T00:00:00Z',
+        },
+      };
+
+      vi.mocked(mockAxios.get).mockResolvedValueOnce(mockMembersResponse);
+      vi.mocked(mockAxios.post).mockResolvedValueOnce(mockResponse);
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await handlers.createPullRequest({
+        repository: 'test-repo',
+        title: 'Test',
+        source_branch: 'feature',
+        reviewers: ['Unknown Person'],
+        include_default_reviewers: false,
+      });
+
+      const postCall = vi.mocked(mockAxios.post).mock.calls[0];
+      const body = postCall[1] as any;
+
+      expect(body.reviewers).toEqual([
+        { username: 'Unknown Person' },
+      ]);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Could not resolve reviewer display name "Unknown Person" - treating as username'
+      );
+
+      warnSpy.mockRestore();
+    });
   });
 
   describe('listPullRequests', () => {

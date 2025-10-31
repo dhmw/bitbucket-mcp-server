@@ -6,12 +6,16 @@ import { AxiosInstance } from 'axios';
 import { BitbucketPullRequest, BitbucketComment } from '../types.js';
 
 /**
- * Convert reviewer identifiers to Bitbucket API format
- * Accepts: username strings, account_id, uuid, or objects with {uuid}, {account_id}, or {username}
+ * Resolve a reviewer identifier to its canonical form
+ * Attempts to resolve display names via the Bitbucket API when necessary
  */
-function convertReviewerToObject(reviewer: any): { uuid?: string; account_id?: string; username?: string } {
-  // If already an object, return as-is
-  if (typeof reviewer === 'object' && reviewer !== null) {
+async function resolveReviewer(
+  reviewer: any,
+  axiosInstance: AxiosInstance,
+  workspace: string
+): Promise<{ uuid?: string; account_id?: string; username?: string }> {
+  // If already an object with the right structure, return as-is
+  if (typeof reviewer === 'object' && reviewer !== null && (reviewer.uuid || reviewer.account_id || reviewer.username)) {
     return reviewer;
   }
 
@@ -30,8 +34,57 @@ function convertReviewerToObject(reviewer: any): { uuid?: string; account_id?: s
     return { account_id: reviewerStr };
   }
 
-  // Otherwise treat it as a username
-  return { username: reviewerStr };
+  // Check if it looks like a username (no spaces, common patterns)
+  if (/^[a-zA-Z0-9._-]+$/.test(reviewerStr)) {
+    return { username: reviewerStr };
+  }
+
+  // If it contains spaces or special characters, treat as display name
+  // Try to resolve it by searching workspace members
+  try {
+    const membersResponse = await axiosInstance.get(`/workspaces/${workspace}/members`, {
+      params: { pagelen: 100 }
+    });
+
+    const members = membersResponse.data.values || [];
+
+    // Try to find exact match on display name
+    let match = members.find((member: any) =>
+      member.user?.display_name === reviewerStr
+    );
+
+    if (match?.user?.username) {
+      return { username: match.user.username };
+    }
+
+    // Try case-insensitive match
+    const lowerReviewerStr = reviewerStr.toLowerCase();
+    match = members.find((member: any) =>
+      member.user?.display_name?.toLowerCase() === lowerReviewerStr
+    );
+
+    if (match?.user?.username) {
+      return { username: match.user.username };
+    }
+
+    // Try partial match on display name
+    match = members.find((member: any) =>
+      member.user?.display_name?.toLowerCase().includes(lowerReviewerStr) ||
+      lowerReviewerStr.includes(member.user?.display_name?.toLowerCase())
+    );
+
+    if (match?.user?.username) {
+      return { username: match.user.username };
+    }
+
+    // If no match found, log warning and treat as username anyway
+    console.warn(`Could not resolve reviewer display name "${reviewerStr}" - treating as username`);
+    return { username: reviewerStr };
+  } catch (error) {
+    // If API call fails, treat as username
+    console.warn(`Failed to resolve reviewer display name "${reviewerStr}" via API - treating as username`, error);
+    return { username: reviewerStr };
+  }
 }
 
 export class PullRequestHandlers {
@@ -81,6 +134,11 @@ export class PullRequestHandlers {
       }
     }
 
+    // Resolve all reviewers to their canonical form
+    const resolvedReviewers = await Promise.all(
+      allReviewers.map(reviewer => resolveReviewer(reviewer, this.axiosInstance, this.workspace))
+    );
+
     const pullRequestData = {
       title,
       description,
@@ -94,7 +152,7 @@ export class PullRequestHandlers {
           name: destination_branch,
         },
       },
-      reviewers: allReviewers.map(convertReviewerToObject),
+      reviewers: resolvedReviewers,
     };
 
     const response = await this.axiosInstance.post(
@@ -398,7 +456,10 @@ export class PullRequestHandlers {
     }
 
     if (reviewers !== undefined) {
-      updateData.reviewers = reviewers.map(convertReviewerToObject);
+      // Resolve all reviewers to their canonical form
+      updateData.reviewers = await Promise.all(
+        reviewers.map((reviewer: any) => resolveReviewer(reviewer, this.axiosInstance, this.workspace))
+      );
     }
 
     const response = await this.axiosInstance.put(
