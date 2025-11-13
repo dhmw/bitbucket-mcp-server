@@ -1,8 +1,6 @@
 /**
- * Shared OAuth2 Authorization Flow
- *
- * This module provides the OAuth2 authorization code flow logic
- * used by both the MCP server and the standalone authorization script.
+ * OAuth 2.0 authorization flow for Bitbucket
+ * Uses authorization code flow to authenticate users
  */
 
 import http from 'http';
@@ -23,6 +21,7 @@ export interface OAuthFlowOptions {
   timeout?: number;
 }
 
+
 /**
  * Open a URL in the default browser
  */
@@ -37,22 +36,10 @@ function openBrowser(url: string): void {
 }
 
 /**
- * Run the OAuth2 authorization code flow
- *
- * @param options - OAuth flow configuration
- * @returns Promise that resolves with token data
+ * Start a local HTTP server to handle the OAuth callback
  */
-export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData> {
-  const PORT = options.port || 8234;
-  const TIMEOUT = options.timeout || 5 * 60 * 1000; // 5 minutes default
-  const CALLBACK_URL = `http://localhost:${PORT}/callback`;
-  const authUrl = `https://bitbucket.org/site/oauth2/authorize?client_id=${options.clientId}&response_type=code&redirect_uri=${encodeURIComponent(CALLBACK_URL)}`;
-
+function startCallbackServer(clientId: string, clientSecret: string, port: number, oauthUrl: string): Promise<TokenData> {
   return new Promise((resolve, reject) => {
-    console.error('\n🔐 OAuth2 Authorization Required');
-    console.error('=================================\n');
-    console.error('Starting authorization flow...');
-
     const server = http.createServer(async (req, res) => {
       if (!req.url) {
         res.writeHead(404);
@@ -60,7 +47,7 @@ export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData
         return;
       }
 
-      const url = new URL(req.url, `http://localhost:${PORT}`);
+      const url = new URL(req.url, `http://localhost:${port}`);
 
       if (url.pathname === '/callback') {
         const code = url.searchParams.get('code');
@@ -69,7 +56,6 @@ export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData
         if (error) {
           res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
           res.end(`<h1>Authorization Failed</h1><p>Error: ${error}</p><p>You can close this window.</p>`);
-          console.error('❌ Authorization failed:', error);
           server.close();
           reject(new Error(`Authorization failed: ${error}`));
           return;
@@ -78,7 +64,6 @@ export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData
         if (!code) {
           res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
           res.end('<h1>No authorization code received</h1><p>You can close this window.</p>');
-          console.error('❌ No authorization code received');
           server.close();
           reject(new Error('No authorization code received'));
           return;
@@ -92,8 +77,8 @@ export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData
             `grant_type=authorization_code&code=${code}`,
             {
               auth: {
-                username: options.clientId,
-                password: options.clientSecret,
+                username: clientId,
+                password: clientSecret,
               },
               headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -111,11 +96,7 @@ export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData
           console.error('✅ Authorization successful!');
 
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(`
-            <h1>✅ Authorization Successful!</h1>
-            <p>Your tokens have been saved. You can close this window.</p>
-            <p>The MCP server will now continue starting up.</p>
-          `);
+          res.end(`<h1>✅ Authorization Successful!</h1><p>Your tokens have been saved. You can close this window.</p><p>The MCP server will now continue starting up.</p>`);
 
           setTimeout(() => {
             server.close();
@@ -131,7 +112,7 @@ export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData
         }
       } else if (url.pathname === '/') {
         // Landing page that redirects to Bitbucket OAuth
-        res.writeHead(302, { 'Location': authUrl });
+        res.writeHead(302, { 'Location': oauthUrl });
         res.end();
       } else {
         res.writeHead(404);
@@ -139,24 +120,44 @@ export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData
       }
     });
 
-    // Start server and open browser
-    server.listen(PORT, () => {
-      console.error(`📡 Authorization server started on http://localhost:${PORT}`);
-      console.error('\n🌐 Opening browser for authorization...');
-      console.error(`   If your browser does not open then follow this link: ${authUrl.toString()}\n`);
-
-      // Open browser with landing page
-      setTimeout(() => {
-        openBrowser(authUrl.toString());
-      }, 1000);
-
-      console.error('⏳ Waiting for authorization...');
+    server.listen(port, () => {
+      // Server started silently; console output happens in runOAuthFlow
     });
 
-    // Handle timeout
-    setTimeout(() => {
-      server.close();
-      reject(new Error(`Authorization timeout - no response received after ${TIMEOUT / 1000} seconds`));
-    }, TIMEOUT);
+    server.on('error', (error) => {
+      reject(error);
+    });
   });
+}
+
+/**
+ * Run the OAuth2 authorization code flow
+ *
+ * @param options - OAuth flow configuration
+ * @returns Promise that resolves with token data
+ */
+export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData> {
+  const PORT = options.port || 8234;
+  const CALLBACK_URL = `http://localhost:${PORT}/callback`;
+  const authUrl = `https://bitbucket.org/site/oauth2/authorize?client_id=${options.clientId}&response_type=code&redirect_uri=${encodeURIComponent(CALLBACK_URL)}`;
+
+  const oauthUrlString = authUrl.toString();
+
+  console.error('\n🔐 OAuth2 Authorization Required');
+  console.error('=================================\n');
+  console.error('Starting authorization flow...');
+  console.error('\n🌐 Opening browser for authorization...');
+  console.error(`   If the browser doesn't open, visit: ${oauthUrlString}\n`);
+
+  // Start callback server
+  const tokenPromise = startCallbackServer(options.clientId, options.clientSecret, PORT, oauthUrlString);
+
+  // Open browser with landing page
+  setTimeout(() => {
+    openBrowser(oauthUrlString);
+  }, 1000);
+
+  console.error('⏳ Waiting for authorization...');
+
+  return tokenPromise;
 }
