@@ -6,8 +6,8 @@
  */
 
 import http from 'http';
-import { exec } from 'child_process';
 import axios from 'axios';
+import * as childProcess from 'child_process';
 
 export interface TokenData {
   access_token: string;
@@ -24,6 +24,19 @@ export interface OAuthFlowOptions {
 }
 
 /**
+ * Open a URL in the default browser
+ */
+function openBrowser(url: string): void {
+  const start = process.platform === 'darwin'
+    ? 'open'
+    : process.platform === 'win32'
+      ? 'start'
+      : 'xdg-open';
+
+  childProcess.exec(`${start} "${url}"`);
+}
+
+/**
  * Run the OAuth2 authorization code flow
  *
  * @param options - OAuth flow configuration
@@ -32,6 +45,8 @@ export interface OAuthFlowOptions {
 export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData> {
   const PORT = options.port || 8234;
   const TIMEOUT = options.timeout || 5 * 60 * 1000; // 5 minutes default
+  const CALLBACK_URL = `http://localhost:${PORT}/callback`;
+  const authUrl = `https://bitbucket.org/site/oauth2/authorize?client_id=${options.clientId}&response_type=code&redirect_uri=${encodeURIComponent(CALLBACK_URL)}`;
 
   return new Promise((resolve, reject) => {
     console.error('\n🔐 OAuth2 Authorization Required');
@@ -114,6 +129,10 @@ export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData
           server.close();
           reject(error);
         }
+      } else if (url.pathname === '/') {
+        // Landing page that redirects to Bitbucket OAuth
+        res.writeHead(302, { 'Location': authUrl });
+        res.end();
       } else {
         res.writeHead(404);
         res.end('Not Found');
@@ -122,21 +141,14 @@ export async function runOAuthFlow(options: OAuthFlowOptions): Promise<TokenData
 
     // Start server and open browser
     server.listen(PORT, () => {
-      const authUrl = `https://bitbucket.org/site/oauth2/authorize?client_id=${options.clientId}&response_type=code`;
-
-      console.error(`📡 Authorization server started on port ${PORT}`);
+      console.error(`📡 Authorization server started on http://localhost:${PORT}`);
       console.error('\n🌐 Opening browser for authorization...');
-      console.error(`   If the browser doesn't open, visit: ${authUrl}\n`);
+      console.error(`   If your browser does not open then follow this link: ${authUrl.toString()}\n`);
 
-      // Open browser
-      const openCommand = process.platform === 'darwin' ? 'open' :
-                         process.platform === 'win32' ? 'start' : 'xdg-open';
-      exec(`${openCommand} "${authUrl}"`, (error) => {
-        if (error) {
-          console.error('⚠️  Could not open browser automatically.');
-          console.error(`   Please visit: ${authUrl}`);
-        }
-      });
+      // Open browser with landing page
+      setTimeout(() => {
+        openBrowser(authUrl.toString());
+      }, 1000);
 
       console.error('⏳ Waiting for authorization...');
     });
